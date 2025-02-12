@@ -106,8 +106,6 @@ const ActingSection = () => {
 
 
 const VoiceActingSection = () => {
-  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
-
   const audioFiles = [
     { src: "https://ucarecdn.com/46c9f4ee-f6f9-467a-a2f3-71d5f4503376/BretLindquist2025Samples.mp3", title: "Bret's Reel" },
     { src: "https://ucarecdn.com/93e6ae68-18a5-4253-8e5d-6174f4c608f9/2025BretCharDemo.mp3", title: "Characters" },
@@ -118,22 +116,21 @@ const VoiceActingSection = () => {
     { src: "https://ucarecdn.com/5adfdf11-a726-4abb-820d-3969b4b3d07b/rainforests_of_borneo5.mp3", title: "Narration" },
   ];
 
-  const handlePlay = (src: string) => {
-    // Stop currently playing audio
-    if (currentAudio) {
-      currentAudio.pause();
-      currentAudio.currentTime = 0;
-    }
+  const [currentSrc, setCurrentSrc] = useState<string | null>(null);
 
-    // Create a new audio element and play it
-    const newAudio = new Audio(src);
-    setCurrentAudio(newAudio);
-    newAudio.play().catch((e) => console.error("Audio playback failed:", e));
+  const handlePlay = (src: string) => {
+    setCurrentSrc(src);
   };
 
   return (
     <section id="voice" className="p-8">
       <h2 className="text-2xl font-bold mb-4">Bret's Voice Samples</h2>
+      {/* When an audio file is selected, show the visualizer with controls */}
+      {currentSrc && (
+        <div className="mb-4 bg-black relative">
+          <AudioVisualizerWithControls audioUrl={currentSrc} />
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {audioFiles.map((file, index) => (
           <button
