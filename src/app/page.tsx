@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import AudioVisualizer from '../components/AudioVisualizer';
 import Header from "../components/Header";
 import AudioPlayer from '../components/AudioPlayer';
 import Image from "next/image";
@@ -43,7 +44,7 @@ const ActingSection = () => {
   const posters = [
     "https://ucarecdn.com/cdf9bad4-9b3d-475f-b5ed-fdeb700b356c/21TheFieryPriestSeason2Episode1JeremyBrownBretLindquistActoratDinnerwithLeeHoney.webp",
     "https://ucarecdn.com/6de059a5-3700-4672-8232-d36e6dcab544/BretLindquistDynamiteManChiefDetective1958Season1Episode219582.webp",
-    "https://ucarecdn.com/c90738bd-87aa-4990-9f9c-26b3b38f8fd6/BretTheBattleOfJangsari20192019.JPG",
+    "https://ucarecdn.com/b62d831a-49d8-41b8-89c9-524eb4e759f4/BretLindquistJangsariActor.webp",
     "https://ucarecdn.com/d47a3788-44ef-4f19-aeb5-740d14559939/BretLindquistActorReelsScreenshots.webp",
   ];
 
@@ -105,28 +106,68 @@ const ActingSection = () => {
 
 
 const VoiceActingSection = () => {
+  const [currentAudio, setCurrentAudio] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
   const audioFiles = [
-    "https://ucarecdn.com/46c9f4ee-f6f9-467a-a2f3-71d5f4503376/BretLindquist2025Samples.mp3",
-    "https://ucarecdn.com/93e6ae68-18a5-4253-8e5d-6174f4c608f9/2025BretCharDemo.mp3",
-    "https://ucarecdn.com/237b8f2e-4b83-457f-8740-0e85f069a004/VariousCharacters.mp3",
-    "https://ucarecdn.com/1e10d202-e465-4f1a-9477-8630078312ef/calltoduty4.mp3",
-    "https://ucarecdn.com/a5879b78-89a7-483d-b668-aa1c423fa1a8/firecountry.mp3",
-    "https://ucarecdn.com/c5ad268d-24f5-47f6-a52c-5f2bd4f9d9b7/Project1.mp3",
-    "https://ucarecdn.com/5adfdf11-a726-4abb-820d-3969b4b3d07b/rainforests_of_borneo5.mp3",
+    { src: "https://ucarecdn.com/46c9f4ee-f6f9-467a-a2f3-71d5f4503376/BretLindquist2025Samples.mp3", title: "Bret's Reel" },
+    { src: "https://ucarecdn.com/93e6ae68-18a5-4253-8e5d-6174f4c608f9/2025BretCharDemo.mp3", title: "Characters" },
+    { src: "https://ucarecdn.com/237b8f2e-4b83-457f-8740-0e85f069a004/VariousCharacters.mp3", title: "Characters More" },
+    { src: "https://ucarecdn.com/1e10d202-e465-4f1a-9477-8630078312ef/calltoduty4.mp3", title: "TV Ad" },
+    { src: "https://ucarecdn.com/a5879b78-89a7-483d-b668-aa1c423fa1a8/firecountry.mp3", title: "TV Prime Time" },
+    { src: "https://ucarecdn.com/c5ad268d-24f5-47f6-a52c-5f2bd4f9d9b7/Project1.mp3", title: "Video Game" },
+    { src: "https://ucarecdn.com/5adfdf11-a726-4abb-820d-3969b4b3d07b/rainforests_of_borneo5.mp3", title: "Narration" },
   ];
 
+  const handlePlay = (src: string) => {
+    setCurrentAudio(src);
+    setIsPlaying(true);
+    if (audioRef.current) {
+      audioRef.current.src = src;
+      audioRef.current.play();
+    }
+  };
+
+  const togglePlayPause = () => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
 
   return (
     <section id="voice" className="p-8">
-      {audioFiles.map((file, index) => (
-        <div key={index} className="mb-4">
-          <AudioPlayer src={file} />
-          <p>Audio {index + 1}</p>
-        </div>
-      ))}
+      <h2 className="text-2xl font-bold mb-4">Bret's Voice Samples</h2>
+      <div className="mb-4 bg-black h-40 relative">
+        <AudioVisualizer audioSrc={currentAudio} />
+        <button 
+          onClick={togglePlayPause}
+          className="absolute right-2 top-1/2 transform -translate-y-1/2 w-12 h-12 rounded-full bg-gradient-to-r from-blue-400 to-blue-600"
+        >
+          {isPlaying ? '⏸' : '▶'}
+        </button>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {audioFiles.map((file, index) => (
+          <button
+            key={index}
+            onClick={() => handlePlay(file.src)}
+            className="text-left p-2 hover:bg-gray-700 rounded"
+          >
+            {file.title}
+          </button>
+        ))}
+      </div>
+      <audio ref={audioRef} />
     </section>
   );
 };
+
 
 const AboutMeSection = () => {
   return (

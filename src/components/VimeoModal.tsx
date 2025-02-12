@@ -4,7 +4,7 @@ import React from 'react';
 import ReactModal from 'react-modal';
 import ReactPlayer from 'react-player';
 
-ReactModal.setAppElement("#__next"); // Attach modal to #__next
+ReactModal.setAppElement("#__next");
 
 interface VimeoModalProps {
   isOpen: boolean;
@@ -20,10 +20,22 @@ const VimeoModal: React.FC<VimeoModalProps> = ({ isOpen, onRequestClose, vimeoUr
       className="modal"
       overlayClassName="overlay"
     >
-      <button onClick={onRequestClose} className="close-button">
-        Close
-      </button>
-      <ReactPlayer url={vimeoUrl} width="100%" height="100%" controls />
+      <ReactPlayer 
+        url={vimeoUrl} 
+        width="100%" 
+        height="100%" 
+        controls
+        playing={true}
+        config={{
+          vimeo: {
+            playerOptions: {
+              autoplay: true,
+              fullscreen: true,
+              responsive: true
+            }
+          }
+        }}
+      />
     </ReactModal>
   );
 };
