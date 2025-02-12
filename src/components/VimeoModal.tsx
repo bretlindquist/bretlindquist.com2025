@@ -2,7 +2,13 @@ import React from 'react';
 import ReactModal from 'react-modal';
 import ReactPlayer from 'react-player';
 
-const VimeoModal = ({ isOpen, onRequestClose, vimeoUrl }) => {
+interface VimeoModalProps {
+  isOpen: boolean;
+  onRequestClose: () => void;
+  vimeoUrl: string;
+}
+
+const VimeoModal: React.FC<VimeoModalProps> = ({ isOpen, onRequestClose, vimeoUrl }) => {
   return (
     <ReactModal
       isOpen={isOpen}
@@ -28,3 +34,5 @@ const VimeoModal = ({ isOpen, onRequestClose, vimeoUrl }) => {
     </ReactModal>
   );
 };
+
+export default VimeoModal;
