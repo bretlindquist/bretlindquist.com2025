@@ -125,7 +125,7 @@ const VoiceActingSection = () => {
     setIsPlaying(true);
     if (audioRef.current) {
       audioRef.current.src = src;
-      audioRef.current.play();
+      audioRef.current.play().catch(e => console.error("Audio playback failed:", e));
     }
   };
 
@@ -134,7 +134,7 @@ const VoiceActingSection = () => {
       if (isPlaying) {
         audioRef.current.pause();
       } else {
-        audioRef.current.play();
+        audioRef.current.play().catch(e => console.error("Audio playback failed:", e));
       }
       setIsPlaying(!isPlaying);
     }

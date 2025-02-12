@@ -20,13 +20,15 @@ const VimeoModal: React.FC<VimeoModalProps> = ({ isOpen, onRequestClose, vimeoUr
         url={vimeoUrl}
         width="100%"
         height="100%"
+        controls={true}
+        playing={true}
         config={{
           vimeo: {
             playerOptions: {
               responsive: true,
               autoplay: true,
-              controls: false,
-              background: true
+              controls: true,
+              background: false
             }
           }
         }}
