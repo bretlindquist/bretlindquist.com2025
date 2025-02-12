@@ -6,7 +6,7 @@ const Header = () => {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <header className="fixed top-0 left-0 w-full bg-black z-50">
+    <header className="fixed top-0 left-0 w-full bg-transparent z-50">
       <div className="flex justify-between items-center px-6 py-4">
         <div className="text-xl font-bold">BL</div>
         <button

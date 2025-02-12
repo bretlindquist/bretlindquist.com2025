@@ -20,3 +20,40 @@ body {
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.modal {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #000;
+  padding: 20px;
+  border-radius: 5px;
+  max-width: 80%;
+  max-height: 80%;
+  overflow: auto;
+  outline: none;
+}
+
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+}

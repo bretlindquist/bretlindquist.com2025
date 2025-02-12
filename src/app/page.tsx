@@ -1,6 +1,9 @@
+import React, { useState } from 'react';
 import Header from "../components/Header";
 import AudioPlayer from '../components/AudioPlayer';
 import Image from "next/image";
+import VimeoModal from '../components/VimeoModal';
+
 
 export default function Home() {
   return (
@@ -32,30 +35,72 @@ const HeroSection = () => {
 };
 
 const ActingSection = () => {
+  const [modalIsOpen1, setModalIsOpen1] = useState(false);
+  const [modalIsOpen2, setModalIsOpen2] = useState(false);
   const posters = [
     "https://ucarecdn.com/cdf9bad4-9b3d-475f-b5ed-fdeb700b356c/21TheFieryPriestSeason2Episode1JeremyBrownBretLindquistActoratDinnerwithLeeHoney.webp",
     "https://ucarecdn.com/6de059a5-3700-4672-8232-d36e6dcab544/BretLindquistDynamiteManChiefDetective1958Season1Episode219582.webp",
-    "https://ucarecdn.com/b62d831a-49d8-41b8-89c9-524eb4e759f4/BretLindquistJangsariActor.webp",
+    "https://ucarecdn.com/c90738bd-87aa-4990-9f9c-26b3b38f8fd6/BretTheBattleOfJangsari20192019.JPG",
     "https://ucarecdn.com/d47a3788-44ef-4f19-aeb5-740d14559939/BretLindquistActorReelsScreenshots.webp",
   ];
 
   return (
     <section id="acting" className="p-8">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {posters.map((poster, index) => (
+        <div onClick={() => setModalIsOpen1(true)}>
           <Image
-            key={index}
-            src={poster}
-            alt={`Poster ${index + 1}`}
+            src={posters[0]}
+            alt="Poster 1"
+            width={500}
+            height={750}
+            layout="responsive"
+            style={{ cursor: 'pointer' }}
+          />
+        </div>
+        <div onClick={() => setModalIsOpen2(true)}>
+          <Image
+            src={posters[1]}
+            alt="Poster 2"
+            width={500}
+            height={750}
+            layout="responsive"
+            style={{ cursor: 'pointer' }}
+          />
+        </div>
+        <div>
+          <Image
+            src={posters[2]}
+            alt="Poster 3"
             width={500}
             height={750}
             layout="responsive"
           />
-        ))}
+        </div>
+        <div>
+          <Image
+            src={posters[3]}
+            alt="Poster 4"
+            width={500}
+            height={750}
+            layout="responsive"
+          />
+        </div>
       </div>
+
+      <VimeoModal
+        isOpen={modalIsOpen1}
+        onRequestClose={() => setModalIsOpen1(false)}
+        vimeoUrl="https://vimeo.com/1046306068"
+      />
+      <VimeoModal
+        isOpen={modalIsOpen2}
+        onRequestClose={() => setModalIsOpen2(false)}
+        vimeoUrl="https://vimeo.com/940387499"
+      />
     </section>
   );
 };
+
 
 const VoiceActingSection = () => {
   const audioFiles = [
@@ -85,7 +130,7 @@ const AboutMeSection = () => {
   return (
     <section id="about" className="p-8 flex flex-col md:flex-row items-center gap-8">
       <Image
-        src="/path-to-your-photo.jpg"
+        src="https://ucarecdn.com/82d8fda7-534c-4576-805c-c048b96aaecd/BretLindquistActorHeadshot.webp"
         alt="About Me"
         width={300}
         height={300}
@@ -102,14 +147,15 @@ const ContactSection = () => {
   return (
     <section id="contact" className="p-8">
       <form action="#" method="POST" className="flex flex-col gap-4 max-w-md mx-auto">
-        <input type="text" name="name" placeholder="Your Name" className="p-2 rounded-md" />
-        <input type="email" name="email" placeholder="Your Email" className="p-2 rounded-md" />
-        <textarea name="message" placeholder="Your Message" rows={5} className="p-2 rounded-md"></textarea>
+        <input type="text" name="name" placeholder="Your Name" className="p-2 rounded-md text-black" />
+        <input type="email" name="email" placeholder="Your Email" className="p-2 rounded-md text-black" />
+        <textarea name="message" placeholder="Your Message" rows={5} className="p-2 rounded-md text-black"></textarea>
         <button type="submit" className="bg-white text-black px-4 py-2 rounded-md">Send</button>
       </form>
     </section>
   );
 };
+
 
 const Footer = () => {
   return (
