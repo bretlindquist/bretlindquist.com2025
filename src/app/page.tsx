@@ -1,5 +1,5 @@
 import Header from "../components/Header";
-import ReactHowler from "react-howler";
+import AudioPlayer from '../components/AudioPlayer';
 import Image from "next/image";
 
 export default function Home() {
@@ -72,7 +72,7 @@ const VoiceActingSection = () => {
     <section id="voice" className="p-8">
       {audioFiles.map((file, index) => (
         <div key={index} className="mb-4">
-          <ReactHowler src={file} playing={false} />
+          <AudioPlayer src={file} />
           <p>Audio {index + 1}</p>
         </div>
       ))}
