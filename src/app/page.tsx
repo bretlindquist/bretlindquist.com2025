@@ -59,14 +59,15 @@ const ActingSection = () => {
 
 const VoiceActingSection = () => {
   const audioFiles = [
-    "/audio/1.mp3",
-    "/audio/2.mp3",
-    "/audio/3.mp3",
-    "/audio/4.mp3",
-    "/audio/5.mp3",
-    "/audio/6.mp3",
-    "/audio/7.mp3",
+    "https://ucarecdn.com/46c9f4ee-f6f9-467a-a2f3-71d5f4503376/BretLindquist2025Samples.mp3",
+    "https://ucarecdn.com/93e6ae68-18a5-4253-8e5d-6174f4c608f9/2025BretCharDemo.mp3",
+    "https://ucarecdn.com/237b8f2e-4b83-457f-8740-0e85f069a004/VariousCharacters.mp3",
+    "https://ucarecdn.com/1e10d202-e465-4f1a-9477-8630078312ef/calltoduty4.mp3",
+    "https://ucarecdn.com/a5879b78-89a7-483d-b668-aa1c423fa1a8/firecountry.mp3",
+    "https://ucarecdn.com/c5ad268d-24f5-47f6-a52c-5f2bd4f9d9b7/Project1.mp3",
+    "https://ucarecdn.com/5adfdf11-a726-4abb-820d-3969b4b3d07b/rainforests_of_borneo5.mp3",
   ];
+
 
   return (
     <section id="voice" className="p-8">
