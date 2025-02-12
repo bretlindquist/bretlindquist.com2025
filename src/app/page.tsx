@@ -121,11 +121,15 @@ const VoiceActingSection = () => {
   ];
 
   const handlePlay = (src: string) => {
-    setCurrentAudio(src);
-    setIsPlaying(true);
     if (audioRef.current) {
-      audioRef.current.src = src;
-      audioRef.current.play().catch(e => console.error("Audio playback failed:", e));
+      if (currentAudio !== src) {
+        // Load new audio
+        audioRef.current.src = src;
+        setCurrentAudio(src);
+      }
+      // Play the audio
+      audioRef.current.play().catch((e) => console.error("Audio playback failed:", e));
+      setIsPlaying(true);
     }
   };
 
@@ -133,10 +137,11 @@ const VoiceActingSection = () => {
     if (audioRef.current) {
       if (isPlaying) {
         audioRef.current.pause();
+        setIsPlaying(false);
       } else {
-        audioRef.current.play().catch(e => console.error("Audio playback failed:", e));
+        audioRef.current.play().catch((e) => console.error("Audio playback failed:", e));
+        setIsPlaying(true);
       }
-      setIsPlaying(!isPlaying);
     }
   };
 
@@ -145,7 +150,7 @@ const VoiceActingSection = () => {
       <h2 className="text-2xl font-bold mb-4">Bret's Voice Samples</h2>
       <div className="mb-4 bg-black h-40 relative">
         <AudioVisualizer audioRef={audioRef} />
-        <button 
+        <button
           onClick={togglePlayPause}
           className="absolute right-2 top-1/2 transform -translate-y-1/2 w-12 h-12 rounded-full bg-gradient-to-r from-blue-400 to-blue-600 flex items-center justify-center"
         >
@@ -167,6 +172,7 @@ const VoiceActingSection = () => {
     </section>
   );
 };
+
 
 
 
