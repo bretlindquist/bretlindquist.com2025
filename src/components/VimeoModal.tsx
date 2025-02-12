@@ -1,18 +1,8 @@
-"use client";
-
 import React from 'react';
 import ReactModal from 'react-modal';
 import ReactPlayer from 'react-player';
 
-ReactModal.setAppElement("#__next");
-
-interface VimeoModalProps {
-  isOpen: boolean;
-  onRequestClose: () => void;
-  vimeoUrl: string;
-}
-
-const VimeoModal: React.FC<VimeoModalProps> = ({ isOpen, onRequestClose, vimeoUrl }) => {
+const VimeoModal = ({ isOpen, onRequestClose, vimeoUrl }) => {
   return (
     <ReactModal
       isOpen={isOpen}
@@ -20,18 +10,17 @@ const VimeoModal: React.FC<VimeoModalProps> = ({ isOpen, onRequestClose, vimeoUr
       className="modal"
       overlayClassName="overlay"
     >
-      <ReactPlayer 
-        url={vimeoUrl} 
-        width="100%" 
-        height="100%" 
-        controls
-        playing={true}
+      <ReactPlayer
+        url={vimeoUrl}
+        width="100%"
+        height="100%"
         config={{
           vimeo: {
             playerOptions: {
+              responsive: true,
               autoplay: true,
-              fullscreen: true,
-              responsive: true
+              controls: false,
+              background: true
             }
           }
         }}
@@ -39,5 +28,3 @@ const VimeoModal: React.FC<VimeoModalProps> = ({ isOpen, onRequestClose, vimeoUr
     </ReactModal>
   );
 };
-
-export default VimeoModal;
