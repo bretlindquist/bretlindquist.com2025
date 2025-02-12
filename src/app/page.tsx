@@ -106,9 +106,7 @@ const ActingSection = () => {
 
 
 const VoiceActingSection = () => {
-  const [currentAudio, setCurrentAudio] = useState<string | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
 
   const audioFiles = [
     { src: "https://ucarecdn.com/46c9f4ee-f6f9-467a-a2f3-71d5f4503376/BretLindquist2025Samples.mp3", title: "Bret's Reel" },
@@ -121,42 +119,21 @@ const VoiceActingSection = () => {
   ];
 
   const handlePlay = (src: string) => {
-    if (audioRef.current) {
-      if (currentAudio !== src) {
-        // Load new audio
-        audioRef.current.src = src;
-        setCurrentAudio(src);
-      }
-      // Play the audio
-      audioRef.current.play().catch((e) => console.error("Audio playback failed:", e));
-      setIsPlaying(true);
+    // Stop currently playing audio
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
     }
-  };
 
-  const togglePlayPause = () => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause();
-        setIsPlaying(false);
-      } else {
-        audioRef.current.play().catch((e) => console.error("Audio playback failed:", e));
-        setIsPlaying(true);
-      }
-    }
+    // Create a new audio element and play it
+    const newAudio = new Audio(src);
+    setCurrentAudio(newAudio);
+    newAudio.play().catch((e) => console.error("Audio playback failed:", e));
   };
 
   return (
     <section id="voice" className="p-8">
       <h2 className="text-2xl font-bold mb-4">Bret's Voice Samples</h2>
-      <div className="mb-4 bg-black h-40 relative">
-        <AudioVisualizer audioRef={audioRef} />
-        <button
-          onClick={togglePlayPause}
-          className="absolute right-2 top-1/2 transform -translate-y-1/2 w-12 h-12 rounded-full bg-gradient-to-r from-blue-400 to-blue-600 flex items-center justify-center"
-        >
-          {isPlaying ? '⏸' : '▶'}
-        </button>
-      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {audioFiles.map((file, index) => (
           <button
@@ -168,7 +145,6 @@ const VoiceActingSection = () => {
           </button>
         ))}
       </div>
-      <audio ref={audioRef} />
     </section>
   );
 };
