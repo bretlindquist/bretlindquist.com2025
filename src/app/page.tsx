@@ -144,10 +144,10 @@ const VoiceActingSection = () => {
     <section id="voice" className="p-8">
       <h2 className="text-2xl font-bold mb-4">Bret's Voice Samples</h2>
       <div className="mb-4 bg-black h-40 relative">
-        <AudioVisualizer audioSrc={currentAudio} />
+        <AudioVisualizer audioRef={audioRef} />
         <button 
           onClick={togglePlayPause}
-          className="absolute right-2 top-1/2 transform -translate-y-1/2 w-12 h-12 rounded-full bg-gradient-to-r from-blue-400 to-blue-600"
+          className="absolute right-2 top-1/2 transform -translate-y-1/2 w-12 h-12 rounded-full bg-gradient-to-r from-blue-400 to-blue-600 flex items-center justify-center"
         >
           {isPlaying ? '⏸' : '▶'}
         </button>
@@ -167,6 +167,7 @@ const VoiceActingSection = () => {
     </section>
   );
 };
+
 
 
 const AboutMeSection = () => {

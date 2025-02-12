@@ -3,53 +3,48 @@
 import React, { useRef, useEffect } from 'react';
 
 interface AudioVisualizerProps {
-  audioSrc: string | null;
+  audioRef: React.RefObject<HTMLAudioElement>;
 }
 
-const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ audioSrc }) => {
+const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ audioRef }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animationRef = useRef<number>();
 
   useEffect(() => {
-    if (!audioSrc) return;
-
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const analyser = audioContext.createAnalyser();
-    const audio = new Audio(audioSrc);
-    const source = audioContext.createMediaElementSource(audio);
-    source.connect(analyser);
-    analyser.connect(audioContext.destination);
-
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const audio = audioRef.current;
+    if (!canvas || !audio) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const analyser = audioContext.createAnalyser();
+    const source = audioContext.createMediaElementSource(audio);
+    source.connect(analyser);
+    analyser.connect(audioContext.destination);
+
+    analyser.fftSize = 256;
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
     const draw = () => {
-      const WIDTH = canvas.width;
-      const HEIGHT = canvas.height;
+      animationRef.current = requestAnimationFrame(draw);
 
-      analyser.fftSize = 256;
-      const bufferLength = analyser.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-
-      ctx.clearRect(0, 0, WIDTH, HEIGHT);
-
-      const drawVisual = requestAnimationFrame(draw);
       analyser.getByteFrequencyData(dataArray);
 
       ctx.fillStyle = 'rgb(0, 0, 0)';
-      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      const barWidth = (WIDTH / bufferLength) * 2.5;
+      const barWidth = (canvas.width / bufferLength) * 2.5;
       let barHeight;
       let x = 0;
 
       for (let i = 0; i < bufferLength; i++) {
         barHeight = dataArray[i] / 2;
 
-        ctx.fillStyle = `rgb(50, 50, ${barHeight + 100})`;
-        ctx.fillRect(x, HEIGHT - barHeight / 2, barWidth, barHeight);
+        ctx.fillStyle = `rgb(0, 0, ${barHeight + 100})`;
+        ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
 
         x += barWidth + 1;
       }
@@ -58,12 +53,13 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ audioSrc }) => {
     draw();
 
     return () => {
-      audio.pause();
-      audio.currentTime = 0;
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
     };
-  }, [audioSrc]);
+  }, [audioRef]);
 
-  return <canvas ref={canvasRef} className="w-full h-full" />;
+  return <canvas ref={canvasRef} width={300} height={40} className="w-full h-full" />;
 };
 
 export default AudioVisualizer;
