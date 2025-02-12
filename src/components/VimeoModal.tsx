@@ -15,6 +15,7 @@ const VimeoModal: React.FC<VimeoModalProps> = ({ isOpen, onRequestClose, vimeoUr
       onRequestClose={onRequestClose}
       className="modal"
       overlayClassName="overlay"
+      appElement={typeof window !== 'undefined' ? document.body : undefined}
     >
       <ReactPlayer
         url={vimeoUrl}
