@@ -12,6 +12,8 @@ export default function AudioVisualizerWithControls({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const animationRef = useRef<number>();
+  // Ref to store the media element source so we don't recreate it.
+  const mediaSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
   useEffect(() => {
@@ -28,17 +30,26 @@ export default function AudioVisualizerWithControls({
     const analyser = audioContext.createAnalyser();
     analyser.fftSize = 2048; // Higher FFT size for a smoother waveform
 
-    // Connect the audio element to the analyser
-    const source = audioContext.createMediaElementSource(audio);
+    // Only create the media element source if it hasn't been created already.
+    if (!mediaSourceRef.current) {
+      try {
+        mediaSourceRef.current = audioContext.createMediaElementSource(audio);
+      } catch (err) {
+        console.error("Error creating MediaElementSource:", err);
+        return;
+      }
+    }
+    const source = mediaSourceRef.current;
+
     source.connect(analyser);
     analyser.connect(audioContext.destination);
 
-    // Define a color palette (inspired by Audacity’s classic scheme)
+    // Define a color palette
     const colorPalette = {
-      background: "rgb(30, 30, 30)", // Dark background
-      waveform: "rgb(0, 153, 255)",   // Bright blue for main waveform
-      echo: "rgba(0, 153, 255, 0.3)",   // Translucent blue for echo/shadow
-      midLine: "rgba(255, 255, 255, 0.6)" // Subtle mid-line reference
+      background: "rgb(30, 30, 30)",
+      waveform: "rgb(0, 153, 255)",
+      echo: "rgba(0, 153, 255, 0.3)",
+      midLine: "rgba(255, 255, 255, 0.6)"
     };
 
     const draw = () => {
@@ -50,7 +61,7 @@ export default function AudioVisualizerWithControls({
       ctx.fillStyle = colorPalette.background;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Draw a subtle mid-line
+      // Draw mid-line
       ctx.lineWidth = 1;
       ctx.strokeStyle = colorPalette.midLine;
       ctx.beginPath();
@@ -61,13 +72,13 @@ export default function AudioVisualizerWithControls({
       const sliceWidth = canvas.width / bufferLength;
       let x = 0;
 
-      // Draw the echo waveform (with a slight vertical offset)
+      // Draw the echo waveform
       ctx.lineWidth = 2;
       ctx.strokeStyle = colorPalette.echo;
       ctx.beginPath();
       for (let i = 0; i < bufferLength; i++) {
-        const v = dataArray[i] / 128.0; // Normalized value (centered at 1)
-        const y = (v * canvas.height) / 2 + 10; // Offset echo by 10px
+        const v = dataArray[i] / 128.0;
+        const y = (v * canvas.height) / 2 + 10;
         if (i === 0) {
           ctx.moveTo(x, y);
         } else {
@@ -77,7 +88,7 @@ export default function AudioVisualizerWithControls({
       }
       ctx.stroke();
 
-      // Draw the main waveform on top
+      // Draw the main waveform
       x = 0;
       ctx.lineWidth = 2;
       ctx.strokeStyle = colorPalette.waveform;
@@ -97,10 +108,8 @@ export default function AudioVisualizerWithControls({
       animationRef.current = requestAnimationFrame(draw);
     };
 
-    // Start the drawing loop
     draw();
 
-    // Cleanup on unmount: cancel animation frame and close audio context
     return () => {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
@@ -115,7 +124,6 @@ export default function AudioVisualizerWithControls({
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      // Play returns a promise; resume the context if needed.
       audioRef.current
         .play()
         .then(() => setIsPlaying(true))
@@ -125,16 +133,11 @@ export default function AudioVisualizerWithControls({
 
   return (
     <div className="relative w-full h-full">
-      {/* Canvas for the waveform visualization */}
-      <canvas
-        ref={canvasRef}
-        width={640}
-        height={100}
-        className="w-full h-full"
-      />
-      {/* Hidden audio element */}
-      <audio ref={audioRef} src={audioUrl} />
-      {/* Circular play/pause button (positioned over the canvas on the right side) */}
+      <canvas ref={canvasRef} width={640} height={100} className="w-full h-full" />
+      {/* Option 1: Use a key to force remounting (recommended if audioUrl changes) */}
+      <audio key={audioUrl} ref={audioRef} src={audioUrl} />
+      {/* Option 2: If audioUrl does not change, you can simply render without key */}
+      {/* <audio ref={audioRef} src={audioUrl} /> */}
       <button
         onClick={togglePlayPause}
         className="absolute right-4 top-1/2 transform -translate-y-1/2 w-16 h-16 rounded-full bg-gradient-to-r from-blue-400 to-blue-600 text-white flex items-center justify-center text-2xl shadow-lg"
