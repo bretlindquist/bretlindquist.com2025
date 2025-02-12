@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState } from 'react';
+import React from 'react';
 import ReactModal from 'react-modal';
 import ReactPlayer from 'react-player';
 
-ReactModal.setAppElement("#__next");  // Important for accessibility
+ReactModal.setAppElement("#__next"); // Attach modal to #__next
 
 interface VimeoModalProps {
   isOpen: boolean;
@@ -17,7 +17,6 @@ const VimeoModal: React.FC<VimeoModalProps> = ({ isOpen, onRequestClose, vimeoUr
     <ReactModal
       isOpen={isOpen}
       onRequestClose={onRequestClose}
-      contentLabel="Vimeo Video"
       className="modal"
       overlayClassName="overlay"
     >

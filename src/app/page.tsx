@@ -29,8 +29,9 @@ const HeroSection = () => {
       <Image
         src="https://ucarecdn.com/82d8fda7-534c-4576-805c-c048b96aaecd/BretLindquistActorHeadshot.webp"
         alt="Hero"
-        layout="fill"
-        objectFit="cover"
+        fill
+        sizes="100vw"
+        style={{ objectFit: "cover" }}
       />
     </section>
   );
@@ -49,24 +50,22 @@ const ActingSection = () => {
   return (
     <section id="acting" className="p-8">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div onClick={() => setModalIsOpen1(true)}>
+        <div onClick={() => setModalIsOpen1(true)} style={{ cursor: 'pointer' }}>
           <Image
             src={posters[0]}
             alt="Poster 1"
             width={500}
             height={750}
-            layout="responsive"
-            style={{ cursor: 'pointer' }}
+            style={{ width: '100%', height: 'auto' }}
           />
         </div>
-        <div onClick={() => setModalIsOpen2(true)}>
+        <div onClick={() => setModalIsOpen2(true)} style={{ cursor: 'pointer' }}>
           <Image
             src={posters[1]}
             alt="Poster 2"
             width={500}
             height={750}
-            layout="responsive"
-            style={{ cursor: 'pointer' }}
+            style={{ width: '100%', height: 'auto' }}
           />
         </div>
         <div>
@@ -75,7 +74,7 @@ const ActingSection = () => {
             alt="Poster 3"
             width={500}
             height={750}
-            layout="responsive"
+            style={{ width: '100%', height: 'auto' }}
           />
         </div>
         <div>
@@ -84,7 +83,7 @@ const ActingSection = () => {
             alt="Poster 4"
             width={500}
             height={750}
-            layout="responsive"
+            style={{ width: '100%', height: 'auto' }}
           />
         </div>
       </div>
@@ -102,6 +101,7 @@ const ActingSection = () => {
     </section>
   );
 };
+
 
 
 const VoiceActingSection = () => {

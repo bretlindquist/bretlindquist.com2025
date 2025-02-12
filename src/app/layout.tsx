@@ -27,7 +27,8 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        {/* Add a wrapper div with id="__next" */}
+        <div id="__next">{children}</div>
       </body>
     </html>
   );
