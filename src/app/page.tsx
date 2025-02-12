@@ -6,6 +6,7 @@ import Header from "../components/Header";
 import AudioPlayer from '../components/AudioPlayer';
 import Image from "next/image";
 import VimeoModal from '../components/VimeoModal';
+import AudioVisualizerWithControls from "../components/AudioVisualizerWithControls";
 
 
 export default function Home() {
