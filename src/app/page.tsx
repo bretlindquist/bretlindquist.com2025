@@ -150,7 +150,7 @@ const audioFiles: AudioFile[] = [
   },
 ];
 
-export default function VoiceActingSection() {
+function VoiceActingSection() {
   // State for the currently selected audio source and playback status.
   const [currentAudioSrc, setCurrentAudioSrc] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
