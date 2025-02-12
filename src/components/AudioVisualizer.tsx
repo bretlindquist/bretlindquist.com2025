@@ -18,17 +18,26 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ audioRef }) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const analyser = audioContext.createAnalyser();
-    const source = audioContext.createMediaElementSource(audio);
-    source.connect(analyser);
-    analyser.connect(audioContext.destination);
+    let audioContext: AudioContext | undefined;
+    let analyser: AnalyserNode | undefined;
+    let source: MediaElementAudioSourceNode | undefined;
 
-    analyser.fftSize = 256;
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
+    const initAudio = () => {
+      audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      analyser = audioContext.createAnalyser();
+      source = audioContext.createMediaElementSource(audio);
+      source.connect(analyser);
+      analyser.connect(audioContext.destination);
+
+      analyser.fftSize = 256;
+    };
 
     const draw = () => {
+      if (!analyser) return;
+
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
       animationRef.current = requestAnimationFrame(draw);
 
       analyser.getByteFrequencyData(dataArray);
@@ -50,12 +59,19 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ audioRef }) => {
       }
     };
 
-    draw();
+    const handlePlay = () => {
+      if (!audioContext) initAudio();
+      draw();
+    };
+
+    audio.addEventListener('play', handlePlay);
 
     return () => {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
+      audio.removeEventListener('play', handlePlay);
+      if (audioContext) audioContext.close();
     };
   }, [audioRef]);
 
