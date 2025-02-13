@@ -19,7 +19,7 @@ const customStyles = {
     bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.9)',
     zIndex: 1000,
-    overflow: 'hidden', // prevents scrolling
+    overflow: 'hidden', // Prevents background scrolling.
   },
   content: {
     position: 'fixed' as const,
@@ -48,7 +48,7 @@ const VimeoModal: React.FC<VimeoModalProps> = ({ isOpen, onRequestClose, vimeoUr
     };
   }, [isOpen]);
 
-  // Fallback keyboard handler for ESC key.
+  // Global ESC key listener using capture phase.
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -60,12 +60,10 @@ const VimeoModal: React.FC<VimeoModalProps> = ({ isOpen, onRequestClose, vimeoUr
 
   useEffect(() => {
     if (isOpen) {
-      window.addEventListener('keydown', handleKeyDown);
-    } else {
-      window.removeEventListener('keydown', handleKeyDown);
+      window.addEventListener('keydown', handleKeyDown, true); // capture phase
     }
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keydown', handleKeyDown, true);
     };
   }, [isOpen, handleKeyDown]);
 
@@ -75,7 +73,7 @@ const VimeoModal: React.FC<VimeoModalProps> = ({ isOpen, onRequestClose, vimeoUr
       const internalPlayer = playerRef.current.getInternalPlayer();
       vimeoPlayerRef.current = new Player(internalPlayer);
       vimeoPlayerRef.current.on('fullscreenchange', (data: { fullscreen: boolean }) => {
-        // On mobile, when fullscreen is dismissed, close the modal.
+        // On mobile, when native fullscreen is dismissed, close the modal.
         if (!data.fullscreen) {
           onRequestClose();
         }
@@ -83,7 +81,7 @@ const VimeoModal: React.FC<VimeoModalProps> = ({ isOpen, onRequestClose, vimeoUr
     }
   }, [onRequestClose]);
 
-  // Clean up Vimeo Player when unmounting.
+  // Cleanup Vimeo Player on unmount.
   useEffect(() => {
     return () => {
       if (vimeoPlayerRef.current) {
@@ -103,26 +101,53 @@ const VimeoModal: React.FC<VimeoModalProps> = ({ isOpen, onRequestClose, vimeoUr
       shouldCloseOnEsc={true}
       appElement={typeof window !== 'undefined' ? document.body : undefined}
     >
-      <div style={{ width: '100%', height: '100%' }}>
-        <ReactPlayer
-          ref={playerRef}
-          url={vimeoUrl}
-          width="100%"
-          height="100%"
-          controls={true}
-          playing={true}
-          onReady={handlePlayerReady}
-          config={{
-            vimeo: {
-              playerOptions: {
-                responsive: true,
-                autoplay: true,
-                controls: true,
-                background: false,
-              },
-            },
+      {/* Outer container listens for clicks/taps outside the video */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '100%',
+          height: '100%',
+        }}
+        onClick={(e) => {
+          // Close modal if click/tap is directly on the overlay (not on child elements)
+          if (e.target === e.currentTarget) {
+            onRequestClose();
+          }
+        }}
+      >
+        {/* Constrain video to maintain aspect ratio so controls remain visible */}
+        <div
+          style={{
+            width: '100%',
+            maxWidth: `calc(100vh * (16 / 9))`,
+            aspectRatio: '16/9',
+            background: 'black',
+            position: 'relative',
           }}
-        />
+        >
+          <ReactPlayer
+            ref={playerRef}
+            url={vimeoUrl}
+            width="100%"
+            height="100%"
+            controls={true}
+            playing={true}
+            onReady={handlePlayerReady}
+            config={{
+              vimeo: {
+                playerOptions: {
+                  responsive: true,
+                  autoplay: true,
+                  controls: true,
+                  background: false,
+                  playsinline: false, // Force native fullscreen on mobile
+                },
+              },
+            }}
+          />
+        </div>
       </div>
     </ReactModal>
   );
