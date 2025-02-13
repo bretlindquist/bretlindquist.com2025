@@ -24,7 +24,7 @@ export default function Home() {
 
 const HeroSection = () => {
   return (
-    <section id="hero" className="w-full h-screen relative bg-black">
+    <section id="hero" className="w-full h-screen relative">
       <Image
         src="https://ucarecdn.com/82d8fda7-534c-4576-805c-c048b96aaecd/BretLindquistActorHeadshot.webp"
         alt="Hero"

@@ -8,7 +8,7 @@ const Header = () => {
   return (
     <header className="fixed top-0 left-0 w-full bg-transparent z-50">
       <div className="flex justify-between items-center px-6 py-4">
-        <div className="text-xl font-bold">BL</div>
+        <div className="text-white text-xl font-bold">BL</div>
         <button
           className="text-white"
           onClick={() => setMenuOpen(!menuOpen)}
