@@ -1,47 +1,26 @@
 "use client";
+
 import React, { useRef, useEffect } from "react";
 
-interface FancyVisualizerProps {
-  analyser: AnalyserNode | null;
+interface VisualizerProps {
   isPlaying: boolean;
-  width?: number;
-  height?: number;
+  analyser: AnalyserNode | null;
 }
 
-/**
- * A dedicated visualizer component that:
- * - Draws the main waveform in light blue
- * - Draws echo layers in purple
- * - Spawns bubble-like particles in a blue→purple gradient
- * - Clears the canvas when not playing
- */
-export default function FancyVisualizer({
-  analyser,
-  isPlaying,
-  width = 640,
-  height = 240,
-}: FancyVisualizerProps) {
+const Visualizer: React.FC<VisualizerProps> = ({ isPlaying, analyser }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    const safeCanvas = canvas;
+    if (!canvas || !analyser) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // If no analyser or not playing, clear canvas and exit.
-    if (!analyser || !isPlaying) {
-      ctx.fillStyle = "black";
-      ctx.fillRect(0, 0, safeCanvas.width, safeCanvas.height);
-      return;
-    }
-
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
-
-    // Use const since we don't reassign the array variable.
+    
+    // Particle system for echo effects
     const particles: Array<{
       x: number;
       y: number;
@@ -49,57 +28,60 @@ export default function FancyVisualizer({
       radius: number;
       dx: number;
       dy: number;
-      gradient: CanvasGradient;
     }> = [];
 
     function spawnParticle(x: number, y: number) {
       const angle = Math.random() * 2 * Math.PI;
       const speed = 0.5 + Math.random() * 1.5;
-      const radius = 5 + Math.random() * 10;
-      const alpha = 1;
-      const grad = ctx!.createRadialGradient(x, y, 0, x, y, radius);
-      grad.addColorStop(0, "rgba(153, 204, 255, 1)"); // soft light blue
-      grad.addColorStop(1, "rgba(200, 153, 255, 1)"); // light purple
-      particles.push({ x, y, alpha, radius, dx: Math.cos(angle) * speed, dy: Math.sin(angle) * speed, gradient: grad });
+      particles.push({
+        x,
+        y,
+        alpha: 1,
+        radius: 2 + Math.random() * 3,
+        dx: Math.cos(angle) * speed,
+        dy: Math.sin(angle) * speed,
+      });
     }
 
     function draw() {
-      analyser!.getByteTimeDomainData(dataArray);
-      if (!ctx) return;
-      ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
-      ctx.fillRect(0, 0, safeCanvas.width, safeCanvas.height);
+      analyser.getByteTimeDomainData(dataArray);
 
-      // Main waveform in light blue
+      // Clear canvas with a slightly transparent fill for a trail effect
+      ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw main waveform
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.strokeStyle = "#99ccff";
-      const sliceWidth = safeCanvas.width / bufferLength;
+      ctx.strokeStyle = "#00ffff";
+      const sliceWidth = canvas.width / bufferLength;
       let x = 0;
       for (let i = 0; i < bufferLength; i++) {
         const v = dataArray[i] / 128.0;
-        const y = (v * safeCanvas.height) / 2;
+        const y = (v * canvas.height) / 2;
         if (i === 0) {
           ctx.moveTo(x, y);
         } else {
           ctx.lineTo(x, y);
         }
-        if (i % 60 === 0 && Math.random() < 0.3) {
+        // Spawn a particle occasionally when playing
+        if (i % 50 === 0 && Math.random() < 0.3 && isPlaying) {
           spawnParticle(x, y);
         }
         x += sliceWidth;
       }
       ctx.stroke();
 
-      // Echo layers in purple
+      // Draw echo layers (multiple offset waveforms)
       const echoCount = 3;
       for (let e = 1; e <= echoCount; e++) {
         ctx.beginPath();
-        const alpha = 0.2 / e;
-        ctx.strokeStyle = `rgba(180, 80, 220, ${alpha})`;
+        const alpha = 0.3 / e;
+        ctx.strokeStyle = `rgba(0, 255, 255, ${alpha})`;
         x = 0;
         for (let i = 0; i < bufferLength; i++) {
           const v = dataArray[i] / 128.0;
-          const y = (v * safeCanvas.height) / 2 + e * 12;
+          const y = (v * canvas.height) / 2 + e * 10;
           if (i === 0) {
             ctx.moveTo(x, y);
           } else {
@@ -110,7 +92,7 @@ export default function FancyVisualizer({
         ctx.stroke();
       }
 
-      // Draw particles (bubbles)
+      // Update and draw the particle system
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
         p.x += p.dx;
@@ -121,32 +103,34 @@ export default function FancyVisualizer({
           i--;
           continue;
         }
-        ctx.save();
-        ctx.globalAlpha = p.alpha;
         ctx.beginPath();
-        ctx.fillStyle = p.gradient;
+        ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha})`;
         ctx.arc(p.x, p.y, p.radius, 0, 2 * Math.PI);
         ctx.fill();
-        ctx.restore();
       }
 
       animationIdRef.current = requestAnimationFrame(draw);
     }
 
     animationIdRef.current = requestAnimationFrame(draw);
+
+    // Cleanup the animation on unmount
     return () => {
       if (animationIdRef.current) {
         cancelAnimationFrame(animationIdRef.current);
       }
     };
-  }, [analyser, isPlaying]);
+  }, [isPlaying, analyser]);
 
   return (
     <canvas
       ref={canvasRef}
-      width={width}
-      height={height}
-      style={{ width: "100%", display: "block", backgroundColor: "black" }}
+      width={640}
+      height={240}
+      className="w-full h-full"
+      style={{ display: "block", backgroundColor: "black" }}
     />
   );
-}
+};
+
+export default Visualizer;
