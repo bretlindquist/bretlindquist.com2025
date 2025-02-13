@@ -41,9 +41,6 @@ const HeroSection = () => {
   );
 };
 
-
-
-
 const ActingSection = () => {
   const [modalIsOpen1, setModalIsOpen1] = useState(false);
   const [modalIsOpen2, setModalIsOpen2] = useState(false);
@@ -141,30 +138,28 @@ const AudioTests = () => {
     },
   ];
 
-
   const [currentAudio, setCurrentAudio] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
   const playSimpleAudio = (src: string) => {
-    const audio = new Audio(src); // No useRef or state needed for this simple test.
-    audio.play().catch(console.error); // Handle potential play errors.
+    const audio = new Audio(src);
+    audio.play().catch(console.error);
   };
 
   const playControlledAudio = (src: string) => {
     setCurrentAudio(src);
-    setIsPlaying(false); // Reset before changing source
+    setIsPlaying(false);
   };
 
   useEffect(() => {
     if (currentAudio && audioRef.current) {
-      audioRef.current.src = currentAudio; // Set the source here
+      audioRef.current.src = currentAudio;
       audioRef.current.play()
         .then(() => setIsPlaying(true))
         .catch(console.error);
     }
   }, [currentAudio]);
-
 
   const togglePlayPause = () => {
     if (audioRef.current) {
@@ -199,27 +194,19 @@ const AudioTests = () => {
         ))}
       </ul>
       {currentAudio && (
-        <audio ref={audioRef} controls style={{display: 'none'}}/> // Add controls for debugging
+        <audio ref={audioRef} controls style={{display: 'none'}}/>
       )}
       {currentAudio && (
-          <button onClick={togglePlayPause}>{isPlaying ? "Pause" : "Play"}</button>
+        <button onClick={togglePlayPause}>{isPlaying ? "Pause" : "Play"}</button>
       )}
-
-
     </section>
   );
 };
 
 /*
-
-    { src: "https://ucarecdn.com/46c9f4ee-f6f9-467a-a2f3-71d5f4503376/BretLindquist2025Samples.mp3", title: "Bret&apos;s Reel" },
-    { src: "https://ucarecdn.com/93e6ae68-18a5-4253-8e5d-6174f4c608f9/2025BretCharDemo.mp3", title: "Characters" },
-    { src: "https://ucarecdn.com/237b8f2e-4b83-457f-8740-0e85f069a004/VariousCharacters.mp3", title: "Characters More" },
-    { src: "https://ucarecdn.com/1e10d202-e465-4f1a-9477-8630078312ef/calltoduty4.mp3", title: "TV Ad" },
-    { src: "https://ucarecdn.com/a5879b78-89a7-483d-b668-aa1c423fa1a8/firecountry.mp3", title: "TV Prime Time" },
-    { src: "https://ucarecdn.com/c5ad268d-24f5-47f6-a52c-5f2bd4f9d9b7/Project1.mp3", title: "Video Game" },
-    { src: "https://ucarecdn.com/5adfdf11-a726-4abb-820d-3969b4b3d07b/rainforests_of_borneo5.mp3", title: "Narration" },
-  
+  Sample data using escaped apostrophes:
+  { src: "https://ucarecdn.com/46c9f4ee-f6f9-467a-a2f3-71d5f4503376/BretLindquist2025Samples.mp3", title: "Bret&apos;s Reel" },
+  ...
 */
 
 interface AudioFile {
@@ -285,12 +272,10 @@ function VoiceActingSection() {
   // Handle selecting a new audio file.
   const handleSelectAudio = useCallback(
     (src: string) => {
-      // If clicking the same source, toggle play/pause.
       if (src === currentAudioSrc) {
         togglePlayPause();
         return;
       }
-      // Otherwise, pause current playback and switch the source.
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
@@ -314,15 +299,20 @@ function VoiceActingSection() {
       webkitAudioContext?: typeof AudioContext;
     }
     const extendedWindow = window as ExtendedWindow;
-    const AudioContext = window.AudioContext || extendedWindow.webkitAudioContext;
-    
-    // IMPORTANT: Resume the AudioContext if it is suspended.
+    const AudioContextConstructor = window.AudioContext || extendedWindow.webkitAudioContext;
+    if (!AudioContextConstructor) {
+      console.error("Web Audio API not supported.");
+      return;
+    }
+    const audioContext = new AudioContextConstructor();
+
+    // Resume the AudioContext if it is suspended.
     if (audioContext.state === "suspended") {
       audioContext.resume();
     }
     
     const analyser = audioContext.createAnalyser();
-    analyser.fftSize = 2048; // Adjust this value for a smoother or more detailed waveform.
+    analyser.fftSize = 2048;
 
     let source;
     try {
@@ -339,12 +329,8 @@ function VoiceActingSection() {
 
     const draw = () => {
       analyser.getByteTimeDomainData(dataArray);
-
-      // Clear the canvas with a black background.
       ctx.fillStyle = "black";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Draw the waveform as a light blue line.
       ctx.lineWidth = 2;
       ctx.strokeStyle = "lightblue";
       ctx.beginPath();
@@ -361,7 +347,6 @@ function VoiceActingSection() {
         x += sliceWidth;
       }
       ctx.stroke();
-
       animationRef.current = requestAnimationFrame(draw);
     };
 
@@ -385,9 +370,7 @@ function VoiceActingSection() {
 
   return (
     <section id="voice" className="p-8 bg-black text-white">
-      <h2 className="text-2xl font-bold mb-4">Bret's Voice Samples</h2>
-
-      {/* Waveform Visualizer & Play/Pause Button */}
+      <h2 className="text-2xl font-bold mb-4">Bret&apos;s Voice Samples</h2>
       <div className="mb-4 relative bg-black" style={{ height: "200px" }}>
         <canvas
           ref={canvasRef}
@@ -404,8 +387,6 @@ function VoiceActingSection() {
           {isPlaying ? "⏸" : "▶"}
         </button>
       </div>
-
-      {/* Audio Sample List */}
       <ol className="list-decimal pl-6 space-y-2">
         {audioFiles.map((file, index) => (
           <li key={index}>
@@ -418,16 +399,12 @@ function VoiceActingSection() {
           </li>
         ))}
       </ol>
-
-      {/* Hidden audio element for playback */}
       {currentAudioSrc && (
         <audio key={currentAudioSrc} ref={audioRef} src={currentAudioSrc} />
       )}
     </section>
   );
 }
-
-
 
 const AboutMeSection = () => {
   return (
@@ -458,7 +435,6 @@ const ContactSection = () => {
     </section>
   );
 };
-
 
 const Footer = () => {
   return (
