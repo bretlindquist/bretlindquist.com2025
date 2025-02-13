@@ -106,12 +106,17 @@ const ActingSection = () => {
 };
 
 
+"use client";
+
+import React, { useEffect, useRef, useState } from "react";
+
+// Same data you had
 interface AudioFile {
   src: string;
   title: string;
 }
 
-const audioFiles = [
+const audioFiles: AudioFile[] = [
   {
     src: "https://ucarecdn.com/46c9f4ee-f6f9-467a-a2f3-71d5f4503376/BretLindquist2025Samples.mp3",
     title: "Brets Reel",
@@ -125,7 +130,7 @@ const audioFiles = [
     title: "Characters More",
   },
   {
-    src: "https://ucarecdn.com/1e10d202-e465-4f1a-9477-8630078312ef/calltoduty4.mp3",
+    src: "https://ucarecdn.com/1e10d202-e465-4f1a-a9477-8630078312ef/calltoduty4.mp3",
     title: "TV Ad",
   },
   {
@@ -142,60 +147,44 @@ const audioFiles = [
   },
 ];
 
-
-function VoiceActingSection() {
-  // 1) Track which audio file is selected
+export default function VoiceActingSection() {
+  // Which track is selected
   const [currentIndex, setCurrentIndex] = useState<number | null>(null);
-
-  // 2) Playback state
+  // Whether the current track is playing
   const [isPlaying, setIsPlaying] = useState(false);
 
-  // 3) Refs for audio element and the visualizer
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  // 4) Refs for the AudioContext and analyzer
+  // AudioContext
   const audioContextRef = useRef<AudioContext | null>(null);
+
+  // Analyser
   const analyserRef = useRef<AnalyserNode | null>(null);
+
+  // Buffer storage: so we don't fetch/decode the same track over and over
+  // { [srcUrl]: AudioBuffer }
+  const bufferCacheRef = useRef<{ [src: string]: AudioBuffer }>({});
+
+  // The currently playing AudioBufferSourceNode
+  const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
+
+  // Our animation frame ID for the visualizer
   const animationIdRef = useRef<number | null>(null);
 
-  // ------------------------------------------------------------------------------
-  // INITIALIZE AUDIOCONTEXT / ANALYSER ONCE (on mount)
-  // ------------------------------------------------------------------------------
+  // Canvas
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Initialize AudioContext + analyser once
   useEffect(() => {
-    // Create and store a single AudioContext
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContextClass) {
-      console.error("Web Audio API not supported in this browser.");
-      return;
+    if (!audioContextRef.current) {
+      const AC = window.AudioContext || (window as any).webkitAudioContext;
+      audioContextRef.current = new AC();
     }
-    audioContextRef.current = new AudioContextClass();
-
-    // Create a single AnalyserNode
-    analyserRef.current = audioContextRef.current.createAnalyser();
-    analyserRef.current.fftSize = 2048; // Adjust if you want more or fewer waveform points
-
-    // Connect audio element -> analyser -> destination
-    // We'll do this once the audio element is available in the DOM
-    const audioEl = audioRef.current;
-    if (audioEl && audioContextRef.current && analyserRef.current) {
-      const source = audioContextRef.current.createMediaElementSource(audioEl);
-      source.connect(analyserRef.current);
-      analyserRef.current.connect(audioContextRef.current.destination);
+    if (!analyserRef.current && audioContextRef.current) {
+      analyserRef.current = audioContextRef.current.createAnalyser();
+      analyserRef.current.fftSize = 2048;
     }
-
-    // Cleanup if needed
-    return () => {
-      if (audioContextRef.current) {
-        // Not strictly necessary to close, but good practice
-        audioContextRef.current.close().catch(() => {});
-      }
-    };
   }, []);
 
-  // ------------------------------------------------------------------------------
-  // SET UP THE WAVEFORM DRAW LOOP (once on mount)
-  // ------------------------------------------------------------------------------
+  // Set up the fancy draw loop
   useEffect(() => {
     const canvas = canvasRef.current;
     const analyser = analyserRef.current;
@@ -204,119 +193,213 @@ function VoiceActingSection() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    // For time-domain data
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
 
-    const draw = () => {
-      // 1) Clear the canvas
-      ctx.fillStyle = "black";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // We’ll store a simple particle system for “echo” effects
+    // Each particle: { x, y, alpha, radius, dx, dy }
+    let particles: Array<{
+      x: number;
+      y: number;
+      alpha: number;
+      radius: number;
+      dx: number;
+      dy: number;
+    }> = [];
 
-      // 2) Get the time-domain data
+    function spawnParticle(x: number, y: number) {
+      // A random direction and speed
+      const angle = Math.random() * 2 * Math.PI;
+      const speed = 0.5 + Math.random() * 1.5;
+      particles.push({
+        x,
+        y,
+        alpha: 1,
+        radius: 2 + Math.random() * 3,
+        dx: Math.cos(angle) * speed,
+        dy: Math.sin(angle) * speed,
+      });
+    }
+
+    function draw() {
       analyser.getByteTimeDomainData(dataArray);
 
-      // 3) Draw the waveform
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = "lightblue";
-      ctx.beginPath();
+      // Clear canvas each frame
+      ctx.fillStyle = "rgba(0, 0, 0, 0.15)"; 
+      // Slightly transparent fill gives a “trail” effect
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+      ctx.lineWidth = 2;
+
+      // Main waveform
+      ctx.beginPath();
+      ctx.strokeStyle = "#00ffff"; // bright cyan
       const sliceWidth = canvas.width / bufferLength;
       let x = 0;
       for (let i = 0; i < bufferLength; i++) {
         const v = dataArray[i] / 128.0;
-        const y = (v * canvas.height) / 2; // wave ranges from 0..255, center at half height
+        const y = (v * canvas.height) / 2;
         if (i === 0) {
           ctx.moveTo(x, y);
         } else {
           ctx.lineTo(x, y);
         }
+        // spawn a particle occasionally for visual spice
+        if (i % 50 === 0 && Math.random() < 0.3 && isPlaying) {
+          spawnParticle(x, y);
+        }
         x += sliceWidth;
       }
       ctx.stroke();
 
-      // 4) Schedule next frame
-      animationIdRef.current = requestAnimationFrame(draw);
-    };
+      // Echo layers behind (re-draw wave multiple times, offset, fade color)
+      const echoCount = 3;
+      for (let e = 1; e <= echoCount; e++) {
+        ctx.beginPath();
+        // more “echo-y,” each layer more transparent
+        const alpha = 0.3 / e; 
+        ctx.strokeStyle = `rgba(0, 255, 255, ${alpha})`;
 
-    // Start drawing
+        x = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          const v = dataArray[i] / 128.0;
+          // shift each echo layer a bit
+          const y = (v * canvas.height) / 2 + e * 10; 
+          if (i === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+          x += sliceWidth;
+        }
+        ctx.stroke();
+      }
+
+      // Update and draw the particle system
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        p.x += p.dx;
+        p.y += p.dy;
+        p.alpha -= 0.01; // fade out
+        if (p.alpha <= 0) {
+          particles.splice(i, 1);
+          i--;
+          continue;
+        }
+        ctx.beginPath();
+        ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha})`;
+        ctx.arc(p.x, p.y, p.radius, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+
+      animationIdRef.current = requestAnimationFrame(draw);
+    }
+
     animationIdRef.current = requestAnimationFrame(draw);
 
-    // Clean up on unmount
+    // Cleanup on unmount
     return () => {
       if (animationIdRef.current) {
         cancelAnimationFrame(animationIdRef.current);
       }
     };
-  }, []);
+  }, [isPlaying]); 
+  // re-run the draw if isPlaying changes (so that it spawns particles only if playing)
 
-  // ------------------------------------------------------------------------------
-  // PLAY / PAUSE LOGIC
-  // ------------------------------------------------------------------------------
-  const handlePlayPause = useCallback(() => {
-    const audioEl = audioRef.current;
-    const audioCtx = audioContextRef.current;
-    if (!audioEl || !audioCtx) return;
-
-    // iOS Safari: resume() must be called inside a user gesture
-    if (audioCtx.state === "suspended") {
-      audioCtx.resume().catch((err) => {
-        console.error("Error resuming audio context:", err);
-      });
-    }
-
-    if (isPlaying) {
-      // Pause
-      audioEl.pause();
-      setIsPlaying(false);
-    } else {
-      // Play
-      audioEl.play().then(
-        () => {
-          setIsPlaying(true);
-        },
-        (err) => {
-          console.error("Playback error:", err);
-        }
-      );
-    }
-  }, [isPlaying]);
-
-  // ------------------------------------------------------------------------------
-  // WHEN THE USER SELECTS A TRACK
-  // ------------------------------------------------------------------------------
-  const handleSelectTrack = (index: number) => {
-    // If user clicked the same track, just toggle
+  // Handle track selection
+  function handleSelectTrack(index: number) {
     if (index === currentIndex) {
+      // if same track, just toggle
       handlePlayPause();
       return;
     }
-
-    // Different track: set it up, reset playback
     setCurrentIndex(index);
+    // stop old track if playing
+    stopAudio();
+    // once user clicks play, we’ll fetch+decode
+  }
+
+  // Actually fetch+decode the selected track
+  async function loadAndPlayBuffer(src: string) {
+    if (!audioContextRef.current || !analyserRef.current) return;
+    const audioCtx = audioContextRef.current;
+    // make sure context is resumed
+    if (audioCtx.state === "suspended") {
+      await audioCtx.resume();
+    }
+
+    // if we already have it in the cache, use that
+    if (bufferCacheRef.current[src]) {
+      startBuffer(bufferCacheRef.current[src]);
+      return;
+    }
+
+    try {
+      const response = await fetch(src);
+      const arrayBuf = await response.arrayBuffer();
+      const audioBuf = await audioCtx.decodeAudioData(arrayBuf);
+      bufferCacheRef.current[src] = audioBuf;
+      startBuffer(audioBuf);
+    } catch (err) {
+      console.error("Decode error:", err);
+    }
+  }
+
+  function startBuffer(audioBuf: AudioBuffer) {
+    stopAudio(); // ensure no old source is playing
+    if (!audioContextRef.current || !analyserRef.current) return;
+
+    const audioCtx = audioContextRef.current;
+    const analyser = analyserRef.current;
+    const sourceNode = audioCtx.createBufferSource();
+    sourceNode.buffer = audioBuf;
+    sourceNode.connect(analyser);
+    analyser.connect(audioCtx.destination);
+
+    sourceNodeRef.current = sourceNode;
+    sourceNode.start(0);
+    setIsPlaying(true);
+
+    // If you want it to stop automatically after it ends, you can do:
+    sourceNode.onended = () => {
+      setIsPlaying(false);
+    };
+  }
+
+  function stopAudio() {
+    if (sourceNodeRef.current) {
+      try {
+        sourceNodeRef.current.stop();
+      } catch {}
+      sourceNodeRef.current.disconnect();
+      sourceNodeRef.current = null;
+    }
     setIsPlaying(false);
+  }
 
-    const audioEl = audioRef.current;
-    if (!audioEl) return;
-
-    // Pause/Reset old track
-    audioEl.pause();
-    audioEl.currentTime = 0;
-
-    // Set new src
-    audioEl.src = audioFiles[index].src;
-    // Let user press play button (or auto-play if you prefer)
-  };
+  async function handlePlayPause() {
+    if (isPlaying) {
+      // pause
+      stopAudio();
+    } else {
+      // play
+      if (currentIndex == null) {
+        return; // no track selected
+      }
+      const selectedTrack = audioFiles[currentIndex];
+      await loadAndPlayBuffer(selectedTrack.src);
+    }
+  }
 
   return (
     <section id="voice" className="p-8 bg-black text-white">
       <h2 className="text-2xl font-bold mb-4">Bret&apos;s Voice Samples</h2>
-
-      {/* Visualizer Container */}
-      <div className="mb-4 relative bg-black" style={{ height: "200px" }}>
+      <div className="mb-4 relative bg-black" style={{ height: "240px" }}>
         <canvas
           ref={canvasRef}
           width={640}
-          height={200}
+          height={240}
           className="w-full h-full"
           style={{ display: "block", backgroundColor: "black" }}
         />
@@ -331,25 +414,21 @@ function VoiceActingSection() {
         </button>
       </div>
 
-      {/* Track List */}
       <ol className="list-decimal pl-6 space-y-2">
-        {audioFiles.map((file, i) => (
+        {audioFiles.map((file, idx) => (
           <li key={file.src}>
             <button
-              onClick={() => handleSelectTrack(i)}
+              onClick={() => handleSelectTrack(idx)}
               className="text-left hover:underline"
             >
               {file.title}
             </button>
-            {i === currentIndex && (
+            {idx === currentIndex && (
               <span className="ml-2 text-sm text-gray-400">(Selected)</span>
             )}
           </li>
         ))}
       </ol>
-
-      {/* Hidden Audio Element */}
-      <audio ref={audioRef} style={{ display: "none" }} />
     </section>
   );
 }
