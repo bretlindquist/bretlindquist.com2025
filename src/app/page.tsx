@@ -114,7 +114,7 @@ interface AudioFile {
 const audioFiles: AudioFile[] = [
   {
     src: "https://ucarecdn.com/46c9f4ee-f6f9-467a-a2f3-71d5f4503376/BretLindquist2025Samples.mp3",
-    title: "Bret&apos;s Reel",
+    title: "Brets Reel",
   },
   {
     src: "https://ucarecdn.com/93e6ae68-18a5-4253-8e5d-6174f4c608f9/2025BretCharDemo.mp3",
