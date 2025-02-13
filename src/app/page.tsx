@@ -4,6 +4,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import Header from "../components/Header";
 import Image from "next/image";
 import VimeoModal from '../components/VimeoModal';
+import { WaveformVisualizer } from "../components/WaveformVisualizer"
 
 export default function Home() {
   return (
@@ -12,6 +13,7 @@ export default function Home() {
       <main>
         <HeroSection />
         <ActingSection />
+        <VoiceActing />
         <VoiceActingSection />
         <AboutMeSection />
         <ContactSection />
@@ -141,6 +143,64 @@ const audioFiles: AudioFile[] = [
     title: "Narration",
   },
 ];
+function VoiceActing() {
+  const [currentClip, setCurrentClip] = useState<string | null>(null)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  useEffect(() => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.play()
+      } else {
+        audioRef.current.pause()
+      }
+    }
+  }, [isPlaying])
+
+  const handleClipClick = (file: string) => {
+    if (currentClip === file) {
+      setIsPlaying(!isPlaying)
+    } else {
+      setCurrentClip(file)
+      setIsPlaying(true)
+    }
+  }
+
+  return (
+    <section className="mb-12">
+      <h2 className="text-3xl font-semibold mb-4">Voice Acting</h2>
+      <div className="bg-white p-4 rounded shadow relative">
+        {currentClip && (
+          <div className="relative">
+            {/* The waveform visualizer is wrapped in a relative container */}
+            <WaveformVisualizer audioUrl={currentClip} isPlaying={isPlaying} />
+            {/* Floating play/pause button positioned to the right */}
+            <button
+              onClick={() => setIsPlaying(!isPlaying)}
+              className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-blue-500 text-white rounded-full w-16 h-16 flex items-center justify-center shadow-lg hover:bg-blue-600 transition-colors"
+            >
+              {isPlaying ? "❚❚" : "►"}
+            </button>
+          </div>
+        )}
+        <ul className="space-y-2 mt-4">
+          {audioFiles.map((clip) => (
+            <li key={clip.file}>
+              <button
+                onClick={() => handleClipClick(clip.file)}
+                className="text-left w-full p-2 hover:bg-gray-100 rounded transition-colors"
+              >
+                {clip.title}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <audio ref={audioRef} src={currentClip || undefined} />
+    </section>
+  )
+}
 
 function VoiceActingSection() {
   // Track the currently selected audio source and its playing status.
