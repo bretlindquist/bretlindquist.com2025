@@ -146,59 +146,151 @@ const audioFiles: AudioFile[] = [
 
 // ------------------- VoiceActingSection (Decode + Playback) ----------------
 function VoiceActingSection() {
+  // State
   const [currentIndex, setCurrentIndex] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
+  // AudioContext + references
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
   const bufferCacheRef = useRef<{ [src: string]: AudioBuffer }>({});
+  const analyserRef = useRef<AnalyserNode | null>(null);
 
-  // Create AudioContext once
+  // Visualizer
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animationIdRef = useRef<number | null>(null);
+
+  // On mount, create AudioContext + Analyser
   useEffect(() => {
     if (!audioContextRef.current) {
       const AC = window.AudioContext || (window as any).webkitAudioContext;
       audioContextRef.current = new AC();
     }
+    if (!analyserRef.current && audioContextRef.current) {
+      analyserRef.current = audioContextRef.current.createAnalyser();
+      analyserRef.current.fftSize = 2048;
+    }
   }, []);
 
-  // Load + play buffer
+  // Set up a simple waveform loop
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const analyser = analyserRef.current;
+    if (!canvas || !analyser) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    function draw() {
+      analyser.getByteTimeDomainData(dataArray);
+
+      // Clear each frame
+      ctx.fillStyle = "black";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // If not playing, just show empty black
+      if (!isPlaying) {
+        animationIdRef.current = requestAnimationFrame(draw);
+        return;
+      }
+
+      // Draw a single wave in lightblue
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "lightblue";
+      ctx.beginPath();
+
+      const sliceWidth = canvas.width / bufferLength;
+      let x = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        const v = dataArray[i] / 128.0;
+        const y = (v * canvas.height) / 2;
+        if (i === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+        x += sliceWidth;
+      }
+      ctx.stroke();
+
+      animationIdRef.current = requestAnimationFrame(draw);
+    }
+
+    animationIdRef.current = requestAnimationFrame(draw);
+
+    return () => {
+      if (animationIdRef.current) {
+        cancelAnimationFrame(animationIdRef.current);
+      }
+    };
+  }, [isPlaying]);
+
+  // ------------------- Logic to play a buffer -------------------
+  async function handleSelectTrack(index: number) {
+    // If user clicks a track, auto-play it immediately
+    stopAudio();
+    setCurrentIndex(index);
+    const { src } = audioFiles[index];
+    await loadAndPlayBuffer(src);
+  }
+
+  async function handlePlayPause() {
+    if (isPlaying) {
+      stopAudio();
+    } else {
+      // If a track is selected, replay it
+      if (currentIndex != null) {
+        await loadAndPlayBuffer(audioFiles[currentIndex].src);
+      }
+    }
+  }
+
   async function loadAndPlayBuffer(src: string) {
-    if (!audioContextRef.current) return;
+    if (!audioContextRef.current || !analyserRef.current) return;
     const audioCtx = audioContextRef.current;
+
     if (audioCtx.state === "suspended") {
       await audioCtx.resume();
     }
 
-    // If cached
     if (bufferCacheRef.current[src]) {
       startBuffer(bufferCacheRef.current[src]);
       return;
     }
 
-    // Fetch + decode
-    const res = await fetch(src);
-    const arrBuf = await res.arrayBuffer();
-    const audioBuf = await audioCtx.decodeAudioData(arrBuf);
-    bufferCacheRef.current[src] = audioBuf;
-    startBuffer(audioBuf);
+    try {
+      const resp = await fetch(src);
+      const arrBuf = await resp.arrayBuffer();
+      const audioBuf = await audioCtx.decodeAudioData(arrBuf);
+      bufferCacheRef.current[src] = audioBuf;
+      startBuffer(audioBuf);
+    } catch (err) {
+      console.error("Decode error:", err);
+    }
   }
 
-  // Start playing
   function startBuffer(audioBuf: AudioBuffer) {
-    stopAudio(); // stop any old
-    if (!audioContextRef.current) return;
+    stopAudio(); // kill old
+    if (!audioContextRef.current || !analyserRef.current) return;
 
-    const source = audioContextRef.current.createBufferSource();
-    source.buffer = audioBuf;
-    source.connect(audioContextRef.current.destination);
-    source.start(0);
-    sourceRef.current = source;
+    const sourceNode = audioContextRef.current.createBufferSource();
+    sourceNode.buffer = audioBuf;
+    // Connect to the analyser
+    sourceNode.connect(analyserRef.current);
+    analyserRef.current.connect(audioContextRef.current.destination);
+
+    sourceNodeRef.current = sourceNode;
+    sourceNode.start(0);
     setIsPlaying(true);
 
-    source.onended = () => setIsPlaying(false);
+    sourceNode.onended = () => {
+      setIsPlaying(false);
+    };
   }
 
-  // Stop
   function stopAudio() {
     if (sourceRef.current) {
       try {
@@ -210,44 +302,46 @@ function VoiceActingSection() {
     setIsPlaying(false);
   }
 
-  // Handle list click
-  async function handleSelectTrack(index: number) {
-    setCurrentIndex(index);
-    const { src } = audioFiles[index];
-    await loadAndPlayBuffer(src);
-  }
-
-  // optional toggle button
-  function handlePlayPause() {
-    if (isPlaying) {
-      stopAudio();
-    } else if (currentIndex != null) {
-      loadAndPlayBuffer(audioFiles[currentIndex].src);
-    }
-  }
-
+  // ------------------- Render -------------------
   return (
     <section
       style={{
-        backgroundColor: "#333",
-        color: "#fff",
+        backgroundColor: "black",
+        color: "white",
         padding: "20px",
-        minHeight: "50vh",
+        minHeight: "100vh", // ensures a full screen on tall desktops
       }}
     >
       <h2 style={{ fontSize: "1.5rem", marginBottom: "1rem" }}>
-        Bret&apos;s Voice Samples
+        Bret's Voice Samples
       </h2>
 
-      {/* Optional Play/Pause button */}
+      <div>
+        {/* The simple canvas visualizer */}
+        <canvas
+          ref={canvasRef}
+          width={600}
+          height={150}
+          style={{
+            display: "block",
+            backgroundColor: "black",
+            border: "1px solid #444",
+            marginBottom: "10px",
+            width: "100%",
+            maxWidth: "600px",
+          }}
+        />
+      </div>
+
+      {/* Play / Pause Button */}
       <button
         onClick={handlePlayPause}
         style={{
-          marginBottom: "10px",
-          padding: "10px",
-          backgroundColor: "#555",
-          color: "#fff",
-          border: "1px solid #ccc",
+          padding: "8px 16px",
+          marginBottom: "20px",
+          backgroundColor: "#333",
+          color: "white",
+          border: "1px solid #666",
           cursor: "pointer",
         }}
       >
@@ -255,23 +349,28 @@ function VoiceActingSection() {
       </button>
 
       {/* Track list */}
-      <ol style={{ listStyleType: "decimal", paddingLeft: "20px" }}>
+      <ol style={{ listStyle: "decimal", paddingLeft: "20px" }}>
         {audioFiles.map((file, idx) => (
-          <li key={file.src} style={{ margin: "10px 0" }}>
+          <li
+            key={file.src}
+            style={{
+              margin: "10px 0",
+            }}
+          >
             <button
               onClick={() => handleSelectTrack(idx)}
               style={{
-                backgroundColor: "#444",
+                backgroundColor: "#555",
                 color: "#fff",
-                border: "1px solid #666",
+                border: "1px solid #777",
                 cursor: "pointer",
-                padding: "5px 10px",
+                padding: "6px 12px",
               }}
             >
               {file.title}
             </button>
             {idx === currentIndex && (
-              <span style={{ marginLeft: "8px", fontSize: "0.9rem" }}>
+              <span style={{ marginLeft: "8px", fontSize: "0.85rem" }}>
                 (Selected)
               </span>
             )}
@@ -281,6 +380,8 @@ function VoiceActingSection() {
     </section>
   );
 }
+
+
 // ------------------ Additional Sections (same as your code) --------------
 const AboutMeSection = () => {
   return (
