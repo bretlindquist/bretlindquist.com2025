@@ -106,10 +106,6 @@ const ActingSection = () => {
 };
 
 
-"use client";
-
-import React, { useEffect, useRef, useState } from "react";
-
 // Same data you had
 interface AudioFile {
   src: string;
