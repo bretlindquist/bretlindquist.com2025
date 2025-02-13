@@ -25,7 +25,7 @@ export default function Home() {
 
 const HeroSection = () => {
   return (
-    <section id="hero" className="w-full h-screen relative">
+    <section id="hero" className="w-full h-screen relative bg-black">
       <Image
         src="https://ucarecdn.com/82d8fda7-534c-4576-805c-c048b96aaecd/BretLindquistActorHeadshot.webp"
         alt="Hero"
@@ -44,7 +44,7 @@ const ActingSection2 = () => {
   ];
 
   return (
-    <section id="acting" className="p-8">
+    <section id="acting" className="p-8 bg-black">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div onClick={() => setModalIsOpen1(true)} style={{ cursor: 'pointer' }}>
           <Image
@@ -78,7 +78,7 @@ const ActingSection = () => {
   ];
 
   return (
-    <section id="acting" className="p-8">
+    <section id="acting" className="p-8 bg-black">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div onClick={() => setModalIsOpen1(true)} style={{ cursor: 'pointer' }}>
           <Image
@@ -284,8 +284,8 @@ function VoiceActingSection() {
   };
 
   return (
-    <section id="voice" className="p-8">
-      <h2 className="text-2xl font-bold mb-4">Bret's Voice Samples</h2>
+    <section id="voice" className="p-8 bg-black">
+      <h2 className="text-2xl font-bold mb-4 ">Bret's Voice Samples</h2>
       
       {/* Visualizer container */}
       <div className="mb-4 relative bg-black" style={{ height: "200px" }}>
@@ -335,7 +335,7 @@ function VoiceActingSection() {
 
 const AboutMeSection = () => {
   return (
-    <section id="about" className="p-8 flex flex-col md:flex-row items-center gap-8">
+    <section id="about" className="p-8 flex flex-col md:flex-row items-center gap-8 bg-black">
       <Image
         src="https://ucarecdn.com/82d8fda7-534c-4576-805c-c048b96aaecd/BretLindquistActorHeadshot.webp"
         alt="About Me"
@@ -352,7 +352,7 @@ const AboutMeSection = () => {
 
 const ContactSection = () => {
   return (
-    <section id="contact" className="p-8">
+    <section id="contact" className="p-8 bg-black">
       <form action="#" method="POST" className="flex flex-col gap-4 max-w-md mx-auto">
         <input type="text" name="name" placeholder="Your Name" className="p-2 rounded-md text-black" />
         <input type="email" name="email" placeholder="Your Email" className="p-2 rounded-md text-black" />
