@@ -38,6 +38,9 @@ const VimeoModal: React.FC<VimeoModalProps> = ({ isOpen, onRequestClose, vimeoUr
   const playerRef = useRef<ReactPlayer>(null);
   const vimeoPlayerRef = useRef<Player | null>(null);
 
+  // Detect if the device is mobile.
+  const isMobile = typeof window !== 'undefined' && /Mobi|Android/i.test(window.navigator.userAgent);
+
   // Disable background scrolling when modal is open.
   useEffect(() => {
     if (isOpen) {
@@ -48,7 +51,7 @@ const VimeoModal: React.FC<VimeoModalProps> = ({ isOpen, onRequestClose, vimeoUr
     };
   }, [isOpen]);
 
-  // Global ESC key listener using capture phase.
+  // Global ESC key listener attached to the document.
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -60,24 +63,32 @@ const VimeoModal: React.FC<VimeoModalProps> = ({ isOpen, onRequestClose, vimeoUr
 
   useEffect(() => {
     if (isOpen) {
-      window.addEventListener('keydown', handleKeyDown, true); // capture phase
+      document.addEventListener('keydown', handleKeyDown, true); // capture phase
     }
     return () => {
-      window.removeEventListener('keydown', handleKeyDown, true);
+      document.removeEventListener('keydown', handleKeyDown, true);
     };
   }, [isOpen, handleKeyDown]);
 
-  // Initialize Vimeo Player and listen for fullscreen changes.
+  // Initialize Vimeo Player and attach event listeners.
   const handlePlayerReady = useCallback(() => {
     if (playerRef.current) {
       const internalPlayer = playerRef.current.getInternalPlayer();
       vimeoPlayerRef.current = new Player(internalPlayer);
+
+      // Listen for fullscreen changes via the Vimeo API.
       vimeoPlayerRef.current.on('fullscreenchange', (data: { fullscreen: boolean }) => {
-        // On mobile, when native fullscreen is dismissed, close the modal.
         if (!data.fullscreen) {
           onRequestClose();
         }
       });
+
+      // Additionally, attempt to listen for the native iOS fullscreen exit event.
+      if (internalPlayer && (internalPlayer as any).addEventListener) {
+        (internalPlayer as any).addEventListener('webkitendfullscreen', () => {
+          onRequestClose();
+        });
+      }
     }
   }, [onRequestClose]);
 
@@ -101,7 +112,7 @@ const VimeoModal: React.FC<VimeoModalProps> = ({ isOpen, onRequestClose, vimeoUr
       shouldCloseOnEsc={true}
       appElement={typeof window !== 'undefined' ? document.body : undefined}
     >
-      {/* Outer container listens for clicks/taps outside the video */}
+      {/* Outer container listens for overlay clicks/taps */}
       <div
         style={{
           display: 'flex',
@@ -111,13 +122,12 @@ const VimeoModal: React.FC<VimeoModalProps> = ({ isOpen, onRequestClose, vimeoUr
           height: '100%',
         }}
         onClick={(e) => {
-          // Close modal if click/tap is directly on the overlay (not on child elements)
           if (e.target === e.currentTarget) {
             onRequestClose();
           }
         }}
       >
-        {/* Constrain video to maintain aspect ratio so controls remain visible */}
+        {/* Constrain video to a max width so controls remain visible */}
         <div
           style={{
             width: '100%',
@@ -134,6 +144,7 @@ const VimeoModal: React.FC<VimeoModalProps> = ({ isOpen, onRequestClose, vimeoUr
             height="100%"
             controls={true}
             playing={true}
+            muted={isMobile} // On mobile, mute to allow autoplay.
             onReady={handlePlayerReady}
             config={{
               vimeo: {
@@ -142,7 +153,7 @@ const VimeoModal: React.FC<VimeoModalProps> = ({ isOpen, onRequestClose, vimeoUr
                   autoplay: true,
                   controls: true,
                   background: false,
-                  playsinline: false, // Force native fullscreen on mobile
+                  playsinline: false, // Force native fullscreen on mobile.
                 },
               },
             }}
