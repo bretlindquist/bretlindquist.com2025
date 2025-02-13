@@ -185,10 +185,11 @@ function VoiceActingSection() {
   // Set up the fancy draw loop
   useEffect(() => {
     const canvas = canvasRef.current;
+    
     const analyser = analyserRef.current;
     if (!canvas || !analyser) return;
     const safeAnalyser = analyser;
-
+    if (!canvas) return; 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
