@@ -63,7 +63,7 @@ export default function FancyVisualizer({
     }
 
     function draw() {
-      analyser.getByteTimeDomainData(dataArray);
+      analyser!.getByteTimeDomainData(dataArray);
       ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
