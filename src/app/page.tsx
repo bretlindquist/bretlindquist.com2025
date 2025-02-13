@@ -36,6 +36,7 @@ const HeroSection = () => {
     </section>
   );
 };
+
 const ActingSection2 = () => {
   const [modalIsOpen1, setModalIsOpen1] = useState(false);
   const posters = [
@@ -64,6 +65,8 @@ const ActingSection2 = () => {
     </section>
   );
 };
+
+
 const ActingSection = () => {
   const [modalIsOpen1, setModalIsOpen1] = useState(false);
   const [modalIsOpen2, setModalIsOpen2] = useState(false);
