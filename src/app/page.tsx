@@ -4,7 +4,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import Header from "../components/Header";
 import Image from "next/image";
 import VimeoModal from '../components/VimeoModal';
-import VimeoModal from '../components/VimeoModal'
+import FancyVisualizer from "../components/FancyVisualizer"; 
 
 export default function Home() {
   return (
