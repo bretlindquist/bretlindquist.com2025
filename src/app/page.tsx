@@ -10,7 +10,7 @@ export default function Home() {
   return (
     <>
       <Header />
-      <main className="pt-[60px]">
+      <main>
         <HeroSection />
         <ActingSection />
         <VoiceActingSection />
