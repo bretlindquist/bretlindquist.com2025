@@ -27,13 +27,14 @@ export default function FancyVisualizer({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    const safeCanvas = canvas;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     // If no analyser or not playing, clear canvas and exit.
     if (!analyser || !isPlaying) {
       ctx.fillStyle = "black";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, safeCanvas.width, safeCanvas.height);
       return;
     }
 
@@ -66,17 +67,17 @@ export default function FancyVisualizer({
       analyser!.getByteTimeDomainData(dataArray);
       if (!ctx) return;
       ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, safeCanvas.width, safeCanvas.height);
 
       // Main waveform in light blue
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.strokeStyle = "#99ccff";
-      const sliceWidth = canvas.width / bufferLength;
+      const sliceWidth = safeCanvas.width / bufferLength;
       let x = 0;
       for (let i = 0; i < bufferLength; i++) {
         const v = dataArray[i] / 128.0;
-        const y = (v * canvas.height) / 2;
+        const y = (v * safeCanvas.height) / 2;
         if (i === 0) {
           ctx.moveTo(x, y);
         } else {
@@ -98,7 +99,7 @@ export default function FancyVisualizer({
         x = 0;
         for (let i = 0; i < bufferLength; i++) {
           const v = dataArray[i] / 128.0;
-          const y = (v * canvas.height) / 2 + e * 12;
+          const y = (v * safeCanvas.height) / 2 + e * 12;
           if (i === 0) {
             ctx.moveTo(x, y);
           } else {
