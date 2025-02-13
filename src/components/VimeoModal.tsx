@@ -10,23 +10,72 @@ interface VimeoModalProps {
   vimeoUrl: string;
 }
 
+const customStyles = {
+  overlay: {
+    position: 'fixed' as const,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    zIndex: 1000,
+    overflow: 'hidden', // prevents scrolling
+  },
+  content: {
+    position: 'fixed' as const,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    border: 'none',
+    background: 'transparent',
+    padding: 0,
+    overflow: 'hidden',
+  },
+};
+
 const VimeoModal: React.FC<VimeoModalProps> = ({ isOpen, onRequestClose, vimeoUrl }) => {
   const playerRef = useRef<ReactPlayer>(null);
   const vimeoPlayerRef = useRef<Player | null>(null);
 
-  // This callback will be called once the ReactPlayer is ready.
+  // Disable background scrolling when modal is open.
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
+  // Fallback keyboard handler for ESC key.
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onRequestClose();
+      }
+    },
+    [onRequestClose]
+  );
+
+  useEffect(() => {
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    } else {
+      window.removeEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, handleKeyDown]);
+
+  // Initialize Vimeo Player and listen for fullscreen changes.
   const handlePlayerReady = useCallback(() => {
     if (playerRef.current) {
-      // Get the internal player element (the underlying iframe)
       const internalPlayer = playerRef.current.getInternalPlayer();
-      // Create a Vimeo Player instance from the iframe.
       vimeoPlayerRef.current = new Player(internalPlayer);
-
-      // Listen for fullscreen changes.
-      // On mobile, when the native fullscreen player is dismissed,
-      // the 'fullscreenchange' event fires.
       vimeoPlayerRef.current.on('fullscreenchange', (data: { fullscreen: boolean }) => {
-        // If the video is no longer fullscreen, close the modal.
+        // On mobile, when fullscreen is dismissed, close the modal.
         if (!data.fullscreen) {
           onRequestClose();
         }
@@ -34,7 +83,7 @@ const VimeoModal: React.FC<VimeoModalProps> = ({ isOpen, onRequestClose, vimeoUr
     }
   }, [onRequestClose]);
 
-  // Cleanup when the modal unmounts or when isOpen changes.
+  // Clean up Vimeo Player when unmounting.
   useEffect(() => {
     return () => {
       if (vimeoPlayerRef.current) {
@@ -49,14 +98,12 @@ const VimeoModal: React.FC<VimeoModalProps> = ({ isOpen, onRequestClose, vimeoUr
     <ReactModal
       isOpen={isOpen}
       onRequestClose={onRequestClose}
-      // Ensure overlay click and ESC key close the modal on desktop.
+      style={customStyles}
       shouldCloseOnOverlayClick={true}
       shouldCloseOnEsc={true}
-      className="modal"
-      overlayClassName="overlay"
       appElement={typeof window !== 'undefined' ? document.body : undefined}
     >
-      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <div style={{ width: '100%', height: '100%' }}>
         <ReactPlayer
           ref={playerRef}
           url={vimeoUrl}
