@@ -111,7 +111,7 @@ interface AudioFile {
   title: string;
 }
 
-const audioFiles: AudioFile[] = [
+const audioFiles = [
   {
     src: "https://ucarecdn.com/46c9f4ee-f6f9-467a-a2f3-71d5f4503376/BretLindquist2025Samples.mp3",
     title: "Brets Reel",
