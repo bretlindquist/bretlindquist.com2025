@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState } from "react";
 import Header from "../components/Header";
 import Image from "next/image";
-import VimeoModal from '../components/VimeoModal';
-import FancyVisualizer from "../components/FancyVisualizer";
+import VimeoModal from "../components/VimeoModal";
+import FancyVisualizer from "../components/FancyVisualizer"; // <--- The new component
 
 export default function Home() {
   return (
@@ -22,12 +22,13 @@ export default function Home() {
   );
 }
 
+// -------------- Example Hero / Acting Sections (same as before) --------------
 const HeroSection = () => {
   return (
     <section
       id="hero"
       className="w-full h-screen relative"
-      style={{ backgroundColor: 'black' }} 
+      style={{ backgroundColor: "black" }}
     >
       <Image
         src="https://ucarecdn.com/82d8fda7-534c-4576-805c-c048b96aaecd/BretLindquistActorHeadshot.webp"
@@ -54,22 +55,22 @@ const ActingSection = () => {
   return (
     <section id="acting" className="p-8 bg-black">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div onClick={() => setModalIsOpen1(true)} style={{ cursor: 'pointer' }}>
+        <div onClick={() => setModalIsOpen1(true)} style={{ cursor: "pointer" }}>
           <Image
             src={posters[0]}
             alt="Poster 1"
             width={500}
             height={750}
-            style={{ width: '100%', height: 'auto' }}
+            style={{ width: "100%", height: "auto" }}
           />
         </div>
-        <div onClick={() => setModalIsOpen2(true)} style={{ cursor: 'pointer' }}>
+        <div onClick={() => setModalIsOpen2(true)} style={{ cursor: "pointer" }}>
           <Image
             src={posters[1]}
             alt="Poster 2"
             width={500}
             height={750}
-            style={{ width: '100%', height: 'auto' }}
+            style={{ width: "100%", height: "auto" }}
           />
         </div>
         <div>
@@ -78,7 +79,7 @@ const ActingSection = () => {
             alt="Poster 3"
             width={500}
             height={750}
-            style={{ width: '100%', height: 'auto' }}
+            style={{ width: "100%", height: "auto" }}
           />
         </div>
         <div>
@@ -87,7 +88,7 @@ const ActingSection = () => {
             alt="Poster 4"
             width={500}
             height={750}
-            style={{ width: '100%', height: 'auto' }}
+            style={{ width: "100%", height: "auto" }}
           />
         </div>
       </div>
@@ -106,8 +107,7 @@ const ActingSection = () => {
   );
 };
 
-
-// Same data you had
+// ------------------- Audio Data -----------------------------------------
 interface AudioFile {
   src: string;
   title: string;
@@ -144,6 +144,7 @@ const audioFiles: AudioFile[] = [
   },
 ];
 
+// ------------------- VoiceActingSection (Decode + Playback) ----------------
 function VoiceActingSection() {
   // Track the selected and playing
   const [currentIndex, setCurrentIndex] = useState<number | null>(null);
@@ -284,10 +285,13 @@ function VoiceActingSection() {
   );
 }
 
-
+// ------------------ Additional Sections (same as your code) --------------
 const AboutMeSection = () => {
   return (
-    <section id="about" className="p-8 flex flex-col md:flex-row items-center gap-8 bg-black">
+    <section
+      id="about"
+      className="p-8 flex flex-col md:flex-row items-center gap-8 bg-black"
+    >
       <Image
         src="https://ucarecdn.com/82d8fda7-534c-4576-805c-c048b96aaecd/BretLindquistActorHeadshot.webp"
         alt="About Me"
@@ -296,7 +300,9 @@ const AboutMeSection = () => {
         className="rounded-lg"
       />
       <p className="text-lg leading-relaxed">
-        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent vehicula, nisi ut aliquet scelerisque, sapien arcu tristique lectus, nec tincidunt velit nisl vel metus.
+        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent
+        vehicula, nisi ut aliquet scelerisque, sapien arcu tristique lectus, nec
+        tincidunt velit nisl vel metus.
       </p>
     </section>
   );
@@ -305,11 +311,32 @@ const AboutMeSection = () => {
 const ContactSection = () => {
   return (
     <section id="contact" className="p-8 bg-black">
-      <form action="#" method="POST" className="flex flex-col gap-4 max-w-md mx-auto">
-        <input type="text" name="name" placeholder="Your Name" className="p-2 rounded-md text-black" />
-        <input type="email" name="email" placeholder="Your Email" className="p-2 rounded-md text-black" />
-        <textarea name="message" placeholder="Your Message" rows={5} className="p-2 rounded-md text-black"></textarea>
-        <button type="submit" className="bg-white text-black px-4 py-2 rounded-md">Send</button>
+      <form
+        action="#"
+        method="POST"
+        className="flex flex-col gap-4 max-w-md mx-auto"
+      >
+        <input
+          type="text"
+          name="name"
+          placeholder="Your Name"
+          className="p-2 rounded-md text-black"
+        />
+        <input
+          type="email"
+          name="email"
+          placeholder="Your Email"
+          className="p-2 rounded-md text-black"
+        />
+        <textarea
+          name="message"
+          placeholder="Your Message"
+          rows={5}
+          className="p-2 rounded-md text-black"
+        ></textarea>
+        <button type="submit" className="bg-white text-black px-4 py-2 rounded-md">
+          Send
+        </button>
       </form>
     </section>
   );
