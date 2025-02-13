@@ -192,7 +192,7 @@ function VoiceActingSection() {
     if (!canvas) return; 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-
+    const safeCanvas = canvas;
     // For time-domain data
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
@@ -229,18 +229,18 @@ function VoiceActingSection() {
       if (!ctx) return;
       ctx.fillStyle = "rgba(0, 0, 0, 0.15)"; 
       // Slightly transparent fill gives a “trail” effect
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, safeCanvas.width, canvas.height);
 
       ctx.lineWidth = 2;
 
       // Main waveform
       ctx.beginPath();
       ctx.strokeStyle = "#00ffff"; // bright cyan
-      const sliceWidth = canvas.width / bufferLength;
+      const sliceWidth = safeCanvas.width / bufferLength;
       let x = 0;
       for (let i = 0; i < bufferLength; i++) {
         const v = dataArray[i] / 128.0;
-        const y = (v * canvas.height) / 2;
+        const y = (v * safeCanvas.height) / 2;
         if (i === 0) {
           ctx.moveTo(x, y);
         } else {
@@ -266,7 +266,7 @@ function VoiceActingSection() {
         for (let i = 0; i < bufferLength; i++) {
           const v = dataArray[i] / 128.0;
           // shift each echo layer a bit
-          const y = (v * canvas.height) / 2 + e * 10; 
+          const y = (v * safeCanvas.height) / 2 + e * 10; 
           if (i === 0) {
             ctx.moveTo(x, y);
           } else {
