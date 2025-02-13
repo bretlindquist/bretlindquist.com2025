@@ -12,6 +12,7 @@ export default function Home() {
       <main>
         <HeroSection />
         <ActingSection />
+        <AudioTests />
         <VoiceActingSection />
         <AboutMeSection />
         <ContactSection />
@@ -108,6 +109,106 @@ const ActingSection = () => {
   );
 };
 
+const AudioTests = () => {
+  const audioFiles = [
+    {
+      src: "https://ucarecdn.com/46c9f4ee-f6f9-467a-a2f3-71d5f4503376/BretLindquist2025Samples.mp3",
+      title: "Bret's Reel",
+    },
+    {
+      src: "https://ucarecdn.com/93e6ae68-18a5-4253-8e5d-6174f4c608f9/2025BretCharDemo.mp3",
+      title: "Characters",
+    },
+    {
+      src: "https://ucarecdn.com/237b8f2e-4b83-457f-8740-0e85f069a004/VariousCharacters.mp3",
+      title: "Characters More",
+    },
+    {
+      src: "https://ucarecdn.com/1e10d202-e465-4f1a-a9477-8630078312ef/calltoduty4.mp3",
+      title: "TV Ad",
+    },
+    {
+      src: "https://ucarecdn.com/a5879b78-89a7-483d-b668-aa1c423fa1a8/firecountry.mp3",
+      title: "TV Prime Time",
+    },
+    {
+      src: "https://ucarecdn.com/c5ad268d-24f5-47f6-a52c-5f2bd4f9d9b7/Project1.mp3",
+      title: "Video Game",
+    },
+    {
+      src: "https://ucarecdn.com/5adfdf11-a726-4abb-820d-3969b4b3d07b/rainforests_of_borneo5.mp3",
+      title: "Narration",
+    },
+  ];
+
+
+  const [currentAudio, setCurrentAudio] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  const playSimpleAudio = (src: string) => {
+    const audio = new Audio(src); // No useRef or state needed for this simple test.
+    audio.play().catch(console.error); // Handle potential play errors.
+  };
+
+  const playControlledAudio = (src: string) => {
+    setCurrentAudio(src);
+    setIsPlaying(false); // Reset before changing source
+  };
+
+  useEffect(() => {
+    if (currentAudio && audioRef.current) {
+      audioRef.current.src = currentAudio; // Set the source here
+      audioRef.current.play()
+        .then(() => setIsPlaying(true))
+        .catch(console.error);
+    }
+  }, [currentAudio]);
+
+
+  const togglePlayPause = () => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play().catch(console.error);
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  return (
+    <section id="audio-tests" className="p-8 bg-black text-white">
+      <h2>Audio Tests</h2>
+
+      <h3>Simple Audio (No Controls)</h3>
+      <ul>
+        {audioFiles.map((file, index) => (
+          <li key={index}>
+            <button onClick={() => playSimpleAudio(file.src)}>{file.title}</button>
+          </li>
+        ))}
+      </ul>
+
+      <h3>Controlled Audio (Play/Pause)</h3>
+      <ul>
+        {audioFiles.map((file, index) => (
+          <li key={index}>
+            <button onClick={() => playControlledAudio(file.src)}>{file.title}</button>
+          </li>
+        ))}
+      </ul>
+      {currentAudio && (
+        <audio ref={audioRef} controls style={{display: 'none'}}/> // Add controls for debugging
+      )}
+      {currentAudio && (
+          <button onClick={togglePlayPause}>{isPlaying ? "Pause" : "Play"}</button>
+      )}
+
+
+    </section>
+  );
+};
 
 /*
 
