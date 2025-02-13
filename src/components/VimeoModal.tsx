@@ -85,8 +85,9 @@ const VimeoModal: React.FC<VimeoModalProps> = ({ isOpen, onRequestClose, vimeoUr
   // Initialize Vimeo Player and attach event listeners.
   const handlePlayerReady = useCallback(() => {
     if (playerRef.current) {
-      const internalPlayer = playerRef.current.getInternalPlayer();
-      vimeoPlayerRef.current = new Player(internalPlayer);
+        const internalPlayer = playerRef.current.getInternalPlayer();
+        vimeoPlayerRef.current = new Player(internalPlayer as HTMLIFrameElement);
+        
 
       // Listen for fullscreen changes via the Vimeo API.
       vimeoPlayerRef.current.on('fullscreenchange', (data: { fullscreen: boolean }) => {
