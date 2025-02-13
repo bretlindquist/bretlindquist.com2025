@@ -253,7 +253,7 @@ function VoiceActingSection() {
   // Refs for the hidden audio element and the waveform canvas.
   const audioRef = useRef<HTMLAudioElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationRef = useRef<number>();
+  const animationRef = useRef<number | null>(null);
 
   // Toggle play/pause.
   const togglePlayPause = useCallback(() => {
