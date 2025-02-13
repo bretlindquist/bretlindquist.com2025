@@ -310,9 +310,12 @@ function VoiceActingSection() {
     if (!ctx) return;
 
     // Create a new AudioContext.
-    const AudioContext =
-      window.AudioContext || (window as any).webkitAudioContext;
-    const audioContext = new AudioContext();
+    interface ExtendedWindow extends Window {
+      webkitAudioContext?: typeof AudioContext;
+    }
+    const extendedWindow = window as ExtendedWindow;
+    const AudioContext = window.AudioContext || extendedWindow.webkitAudioContext;
+    
     // IMPORTANT: Resume the AudioContext if it is suspended.
     if (audioContext.state === "suspended") {
       audioContext.resume();

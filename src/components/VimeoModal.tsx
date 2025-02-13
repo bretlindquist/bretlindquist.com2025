@@ -9,6 +9,13 @@ interface VimeoModalProps {
   onRequestClose: () => void;
   vimeoUrl: string;
 }
+interface HasAddEventListener {
+    addEventListener(
+      event: string,
+      listener: EventListenerOrEventListenerObject,
+      options?: boolean | AddEventListenerOptions
+    ): void;
+  }  
 
 const customStyles = {
   overlay: {
@@ -89,11 +96,13 @@ const VimeoModal: React.FC<VimeoModalProps> = ({ isOpen, onRequestClose, vimeoUr
       });
 
       // Also listen for iOS native fullscreen exit.
-      if (internalPlayer && (internalPlayer as any).addEventListener) {
-        (internalPlayer as any).addEventListener('webkitendfullscreen', () => {
+      const playerElement = internalPlayer as HasAddEventListener | null;
+      if (playerElement && typeof playerElement.addEventListener === 'function') {
+        playerElement.addEventListener('webkitendfullscreen', () => {
           onRequestClose();
         });
       }
+      
     }
   }, [onRequestClose]);
 
