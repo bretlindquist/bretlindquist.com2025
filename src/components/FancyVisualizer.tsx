@@ -56,7 +56,7 @@ export default function FancyVisualizer({
       const speed = 0.5 + Math.random() * 1.5;
       const radius = 5 + Math.random() * 10;
       const alpha = 1;
-      const grad = ctx.createRadialGradient(x, y, 0, x, y, radius);
+      const grad = ctx!.createRadialGradient(x, y, 0, x, y, radius);
       grad.addColorStop(0, "rgba(153, 204, 255, 1)"); // soft light blue
       grad.addColorStop(1, "rgba(200, 153, 255, 1)"); // light purple
       particles.push({ x, y, alpha, radius, dx: Math.cos(angle) * speed, dy: Math.sin(angle) * speed, gradient: grad });
