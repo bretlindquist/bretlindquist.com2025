@@ -1,7 +1,6 @@
 'use client'; // Marks all code inside as client-side
 
 import React, { useState } from 'react';
-import ReactPlayer from 'react-player';
 import VimeoModal from '../../components/VimeoModal';
 
 const ProjectDetailPage = () => {
@@ -13,10 +12,13 @@ const ProjectDetailPage = () => {
             <div className="v-head relative flex items-center justify-center h-screen">
                 {/* Thumbnail (Placeholder) */}
                 <div
-                    className="thumb-video absolute top-0 h-[92.375vh] w-full bg-cover bg-center z-10 cursor-pointer"
-                    style={{ backgroundImage: `url('https://ucarecdn.com/82d8fda7-534c-4576-805c-c048b96aaecd/BretLindquistActorHeadshot.webp')` }} // Replace with actual thumbnail URL
-                    onClick={() => setModalIsOpen1(true)} style={{ cursor: 'pointer' }}
-                ></div>
+                    className="thumb-video absolute top-0 h-[92.375vh] w-full bg-cover bg-center z-10"
+                    style={{ 
+                        backgroundImage: `url('https://ucarecdn.com/.../BretLindquistActorHeadshot.webp')`,
+                        cursor: 'pointer'
+                    }}
+                    onClick={() => setModalIsOpen1(true)}
+                    ></div>
 
             </div>
 
