@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import ReactPlayer from 'react-player';
-import VimeoModal from '../components/VimeoModal';
+import VimeoModal from '../../components/VimeoModal';
 
 const ProjectDetailPage = () => {
     const [modalIsOpen1, setModalIsOpen1] = useState(false);
