@@ -143,7 +143,7 @@ const audioFiles: AudioFile[] = [
   },
 ];
 
-export default function VoiceActingSection() {
+function VoiceActingSection() {
   // Which track is selected
   const [currentIndex, setCurrentIndex] = useState<number | null>(null);
   // Whether the current track is playing
