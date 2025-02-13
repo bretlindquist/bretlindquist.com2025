@@ -1,84 +1,74 @@
-"use client";
+'use client'; // Marks all code inside as client-side
 
-import React, { useEffect, useRef } from "react";
+import React, { useState } from 'react';
+import ReactPlayer from 'react-player';
 
-// A reusable component that creates a TradingView widget
-interface TradingViewWidgetProps {
-  containerId: string;
-  symbol: string;
-}
+const ProjectDetailPage = () => {
+    const [isVideoPlaying, setIsVideoPlaying] = useState(false);
 
-const TradingViewWidget: React.FC<TradingViewWidgetProps> = ({
-  containerId,
-  symbol,
-}) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    // Create the TradingView script tag only once per widget
-    const script = document.createElement("script");
-    script.src = "https://s3.tradingview.com/tv.js";
-    script.async = true;
-    script.onload = () => {
-      // @ts-ignore
-      new TradingView.widget({
-        width: "100%",
-        height: "400",
-        symbol: symbol,
-        interval: "D",
-        timezone: "Etc/UTC",
-        theme: "dark",
-        style: "1",
-        locale: "en",
-        toolbar_bg: "#f1f3f6",
-        enable_publishing: false,
-        allow_symbol_change: true,
-        container_id: containerId,
-      });
+    const handlePlayVideo = () => {
+        setIsVideoPlaying(true);
     };
 
-    if (containerRef.current) {
-      containerRef.current.innerHTML = ""; // Clear any existing content
-      containerRef.current.appendChild(script);
-    }
-  }, [containerId, symbol]);
+    const handleCloseVideo = () => {
+        setIsVideoPlaying(false);
+    };
 
-  return <div id={containerId} ref={containerRef} className="tradingview-widget-container" />;
+    return (
+        <div className="project-container opacity-0 animate-fade-in"> {/* Added fade-in animation class */}
+            {/* Video Header */}
+            <div className="v-head relative flex items-center justify-center h-screen">
+                {/* Thumbnail (Placeholder) */}
+                <div
+                    className="thumb-video absolute top-0 h-[92.375vh] w-full bg-cover bg-center z-10 cursor-pointer"
+                    style={{ backgroundImage: `url('/img/ayia-easy-thumbnail.jpg')` }} // Replace with actual thumbnail URL
+                    onClick={handlePlayVideo}
+                ></div>
+
+                {/* ReactPlayer Component */}
+                {isVideoPlaying && (
+                    <div className="fixed top-0 left-0 w-screen h-screen z-50 bg-black flex items-center justify-center" onClick={handleCloseVideo}>
+                        <ReactPlayer
+                            url="https://vimeo.com/393488792" // Replace with your Vimeo or video URL
+                            playing={true}
+                            controls={true}
+                            width="100%"
+                            height="100%"
+                            style={{ objectFit: 'contain' }}
+                        />
+                    </div>
+                )}
+                {!isVideoPlaying && (
+                    <div className="play absolute uppercase w-full h-[92.375vh] right-[-24px] z-99 pointer-events-none flex items-center justify-center">
+                        <span>PLAY</span>
+                    </div>)}
+            </div>
+
+            {/* Project Information */}
+            <div className="v-infos relative flex items-center justify-between w-full">
+                <div className='flex flex-col items-center justify-center'>
+                    <h1 className="text-white text-4xl text-center">Ayia 'Easy'</h1>
+                    <p className="text-white text-center">A film by Salomon Ligthelm</p>
+                </div>
+            </div>
+            {/* Text Content */}
+            <div className="text-white text-center p-4">
+                <p>
+                    This is a sample description of the Ayia 'Easy' project. Replace this with the actual project description.
+                </p>
+            </div>
+
+            {/* Image Gallery */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4">
+                <img src="/img/ayia-easy-1.jpg" alt="Image 1" className="w-full" /> {/* Replace with actual image URLs */}
+                <img src="/img/ayia-easy-2.jpg" alt="Image 2" className="w-full" />
+                <img src="/img/ayia-easy-3.jpg" alt="Image 3" className="w-full" />
+                <img src="/img/ayia-easy-4.jpg" alt="Image 4" className="w-full" />
+                <img src="/img/ayia-easy-5.jpg" alt="Image 5" className="w-full" />
+                <img src="/img/ayia-easy-6.jpg" alt="Image 6" className="w-full" />
+            </div>
+        </div>
+    );
 };
 
-export default function KChartsPage() {
-  return (
-    <div className="min-h-screen bg-gray-900 text-white">
-      <header className="py-8 text-center">
-        <h1 className="text-3xl font-bold">Korean Economy Dashboard</h1>
-        <p className="mt-2 text-lg">
-          (Access this page by typing the URL manually, e.g. <code>/kcharts</code>)
-        </p>
-      </header>
-      <main className="p-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <section>
-            <h2 className="text-xl font-semibold mb-4">KOSPI Composite Index</h2>
-            <TradingViewWidget containerId="tradingview_kospi" symbol="KRX:KOSPI" />
-          </section>
-          <section>
-            <h2 className="text-xl font-semibold mb-4">Interest Rate</h2>
-            <TradingViewWidget containerId="tradingview_interest" symbol="ECONOMICS:KRINTR" />
-          </section>
-          <section>
-            <h2 className="text-xl font-semibold mb-4">Korean CPI (Household Costs)</h2>
-            <TradingViewWidget containerId="tradingview_cpi" symbol="ECONOMICS:KRCPI" />
-          </section>
-          <section>
-            <h2 className="text-xl font-semibold mb-4">Unemployment Rate</h2>
-            <TradingViewWidget containerId="tradingview_unemployment" symbol="ECONOMICS:KRUR" />
-          </section>
-          <section className="md:col-span-2">
-            <h2 className="text-xl font-semibold mb-4">Housing (Real Estate)</h2>
-            <TradingViewWidget containerId="tradingview_housing" symbol="ECONOMICS:KRHPI" />
-          </section>
-        </div>
-      </main>
-    </div>
-  );
-}
+export default ProjectDetailPage;
