@@ -190,9 +190,9 @@ function VoiceActingSection() {
     if (!canvas || !analyser) return;
     const safeAnalyser = analyser;
     if (!canvas) return; 
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
     const safeCanvas = canvas;
+    const ctx = safeCanvas.getContext("2d");
+    if (!ctx) return;
     // For time-domain data
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
@@ -229,7 +229,7 @@ function VoiceActingSection() {
       if (!ctx) return;
       ctx.fillStyle = "rgba(0, 0, 0, 0.15)"; 
       // Slightly transparent fill gives a “trail” effect
-      ctx.fillRect(0, 0, safeCanvas.width, canvas.height);
+      ctx.fillRect(0, 0, safeCanvas.width, safeCanvas.height);
 
       ctx.lineWidth = 2;
 
