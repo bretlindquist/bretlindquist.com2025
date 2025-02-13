@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import Header from "../components/Header";
 import Image from "next/image";
 import VimeoModal from '../components/VimeoModal';
@@ -173,7 +173,7 @@ function VoiceActingSection() {
   // Initialize AudioContext + analyser once
   useEffect(() => {
     if (!audioContextRef.current) {
-      const AC = window.AudioContext || (window as any).webkitAudioContext;
+      const AC = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       audioContextRef.current = new AC();
     }
     if (!analyserRef.current && audioContextRef.current) {
@@ -197,7 +197,7 @@ function VoiceActingSection() {
 
     // We’ll store a simple particle system for “echo” effects
     // Each particle: { x, y, alpha, radius, dx, dy }
-    let particles: Array<{
+    const particles: Array<{
       x: number;
       y: number;
       alpha: number;
