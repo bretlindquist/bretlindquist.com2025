@@ -225,6 +225,7 @@ function VoiceActingSection() {
       safeAnalyser.getByteTimeDomainData(dataArray);
 
       // Clear canvas each frame
+      if (!ctx) return;
       ctx.fillStyle = "rgba(0, 0, 0, 0.15)"; 
       // Slightly transparent fill gives a “trail” effect
       ctx.fillRect(0, 0, canvas.width, canvas.height);
