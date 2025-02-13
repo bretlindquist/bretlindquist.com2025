@@ -12,6 +12,7 @@ export default function Home() {
       <Header />
       <main className="pt-[60px]">
         <HeroSection />
+        <ActingSection2 />
         <ActingSection />
         <VoiceActingSection />
         <AboutMeSection />
@@ -35,7 +36,34 @@ const HeroSection = () => {
     </section>
   );
 };
+const ActingSection2 = () => {
+  const [modalIsOpen1, setModalIsOpen1] = useState(false);
+  const posters = [
+    "https://ucarecdn.com/cdf9bad4-9b3d-475f-b5ed-fdeb700b356c/21TheFieryPriestSeason2Episode1JeremyBrownBretLindquistActoratDinnerwithLeeHoney.webp",
+  ];
 
+  return (
+    <section id="acting" className="p-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div onClick={() => setModalIsOpen1(true)} style={{ cursor: 'pointer' }}>
+          <Image
+            src={posters[0]}
+            alt="Poster 1"
+            width={500}
+            height={750}
+            style={{ width: '100%', height: 'auto' }}
+          />
+        </div>
+      </div>
+
+      <VimeoModal
+        isOpen={modalIsOpen1}
+        onRequestClose={() => setModalIsOpen1(false)}
+        vimeoUrl="https://vimeo.com/1046306068"
+      />
+    </section>
+  );
+};
 const ActingSection = () => {
   const [modalIsOpen1, setModalIsOpen1] = useState(false);
   const [modalIsOpen2, setModalIsOpen2] = useState(false);
