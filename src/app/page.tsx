@@ -1,10 +1,9 @@
 "use client";
 
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import Header from "../components/Header";
 import Image from "next/image";
-import VimeoModal from "../components/VimeoModal";
-import FancyVisualizer from "../components/FancyVisualizer"; // <--- The new component
+import VimeoModal from '../components/VimeoModal';
 
 export default function Home() {
   return (
@@ -22,13 +21,12 @@ export default function Home() {
   );
 }
 
-// -------------- Example Hero / Acting Sections (same as before) --------------
 const HeroSection = () => {
   return (
     <section
       id="hero"
       className="w-full h-screen relative"
-      style={{ backgroundColor: "black" }}
+      style={{ backgroundColor: 'black' }} 
     >
       <Image
         src="https://ucarecdn.com/82d8fda7-534c-4576-805c-c048b96aaecd/BretLindquistActorHeadshot.webp"
@@ -55,22 +53,22 @@ const ActingSection = () => {
   return (
     <section id="acting" className="p-8 bg-black">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div onClick={() => setModalIsOpen1(true)} style={{ cursor: "pointer" }}>
+        <div onClick={() => setModalIsOpen1(true)} style={{ cursor: 'pointer' }}>
           <Image
             src={posters[0]}
             alt="Poster 1"
             width={500}
             height={750}
-            style={{ width: "100%", height: "auto" }}
+            style={{ width: '100%', height: 'auto' }}
           />
         </div>
-        <div onClick={() => setModalIsOpen2(true)} style={{ cursor: "pointer" }}>
+        <div onClick={() => setModalIsOpen2(true)} style={{ cursor: 'pointer' }}>
           <Image
             src={posters[1]}
             alt="Poster 2"
             width={500}
             height={750}
-            style={{ width: "100%", height: "auto" }}
+            style={{ width: '100%', height: 'auto' }}
           />
         </div>
         <div>
@@ -79,7 +77,7 @@ const ActingSection = () => {
             alt="Poster 3"
             width={500}
             height={750}
-            style={{ width: "100%", height: "auto" }}
+            style={{ width: '100%', height: 'auto' }}
           />
         </div>
         <div>
@@ -88,7 +86,7 @@ const ActingSection = () => {
             alt="Poster 4"
             width={500}
             height={750}
-            style={{ width: "100%", height: "auto" }}
+            style={{ width: '100%', height: 'auto' }}
           />
         </div>
       </div>
@@ -107,7 +105,10 @@ const ActingSection = () => {
   );
 };
 
-// ------------------- Audio Data -----------------------------------------
+
+
+
+// Same data you had
 interface AudioFile {
   src: string;
   title: string;
@@ -144,136 +145,284 @@ const audioFiles: AudioFile[] = [
   },
 ];
 
-// ------------------- VoiceActingSection (Decode + Playback) ----------------
-function VoiceActingSection() {
+export default function VoiceActingSection() {
+  // Which track is selected
   const [currentIndex, setCurrentIndex] = useState<number | null>(null);
+  // Whether the current track is playing
   const [isPlaying, setIsPlaying] = useState(false);
 
+  // AudioContext
   const audioContextRef = useRef<AudioContext | null>(null);
-  const sourceRef = useRef<AudioBufferSourceNode | null>(null);
+
+  // Analyser
+  const analyserRef = useRef<AnalyserNode | null>(null);
+
+  // Buffer storage: so we don't fetch/decode the same track over and over
+  // { [srcUrl]: AudioBuffer }
   const bufferCacheRef = useRef<{ [src: string]: AudioBuffer }>({});
 
-  // Create AudioContext once
+  // The currently playing AudioBufferSourceNode
+  const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
+
+  // Our animation frame ID for the visualizer
+  const animationIdRef = useRef<number | null>(null);
+
+  // Canvas
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Initialize AudioContext + analyser once
   useEffect(() => {
     if (!audioContextRef.current) {
       const AC = window.AudioContext || (window as any).webkitAudioContext;
       audioContextRef.current = new AC();
     }
+    if (!analyserRef.current && audioContextRef.current) {
+      analyserRef.current = audioContextRef.current.createAnalyser();
+      analyserRef.current.fftSize = 2048;
+    }
   }, []);
 
-  // Load + play buffer
+  // Set up the fancy draw loop
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const analyser = analyserRef.current;
+    if (!canvas || !analyser) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // For time-domain data
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    // We’ll store a simple particle system for “echo” effects
+    // Each particle: { x, y, alpha, radius, dx, dy }
+    let particles: Array<{
+      x: number;
+      y: number;
+      alpha: number;
+      radius: number;
+      dx: number;
+      dy: number;
+    }> = [];
+
+    function spawnParticle(x: number, y: number) {
+      // A random direction and speed
+      const angle = Math.random() * 2 * Math.PI;
+      const speed = 0.5 + Math.random() * 1.5;
+      particles.push({
+        x,
+        y,
+        alpha: 1,
+        radius: 2 + Math.random() * 3,
+        dx: Math.cos(angle) * speed,
+        dy: Math.sin(angle) * speed,
+      });
+    }
+
+    function draw() {
+      analyser.getByteTimeDomainData(dataArray);
+
+      // Clear canvas each frame
+      ctx.fillStyle = "rgba(0, 0, 0, 0.15)"; 
+      // Slightly transparent fill gives a “trail” effect
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.lineWidth = 2;
+
+      // Main waveform
+      ctx.beginPath();
+      ctx.strokeStyle = "#00ffff"; // bright cyan
+      const sliceWidth = canvas.width / bufferLength;
+      let x = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        const v = dataArray[i] / 128.0;
+        const y = (v * canvas.height) / 2;
+        if (i === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+        // spawn a particle occasionally for visual spice
+        if (i % 50 === 0 && Math.random() < 0.3 && isPlaying) {
+          spawnParticle(x, y);
+        }
+        x += sliceWidth;
+      }
+      ctx.stroke();
+
+      // Echo layers behind (re-draw wave multiple times, offset, fade color)
+      const echoCount = 3;
+      for (let e = 1; e <= echoCount; e++) {
+        ctx.beginPath();
+        // more “echo-y,” each layer more transparent
+        const alpha = 0.3 / e; 
+        ctx.strokeStyle = `rgba(0, 255, 255, ${alpha})`;
+
+        x = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          const v = dataArray[i] / 128.0;
+          // shift each echo layer a bit
+          const y = (v * canvas.height) / 2 + e * 10; 
+          if (i === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+          x += sliceWidth;
+        }
+        ctx.stroke();
+      }
+
+      // Update and draw the particle system
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        p.x += p.dx;
+        p.y += p.dy;
+        p.alpha -= 0.01; // fade out
+        if (p.alpha <= 0) {
+          particles.splice(i, 1);
+          i--;
+          continue;
+        }
+        ctx.beginPath();
+        ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha})`;
+        ctx.arc(p.x, p.y, p.radius, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+
+      animationIdRef.current = requestAnimationFrame(draw);
+    }
+
+    animationIdRef.current = requestAnimationFrame(draw);
+
+    // Cleanup on unmount
+    return () => {
+      if (animationIdRef.current) {
+        cancelAnimationFrame(animationIdRef.current);
+      }
+    };
+  }, [isPlaying]); 
+  // re-run the draw if isPlaying changes (so that it spawns particles only if playing)
+
+  // Handle track selection
+  function handleSelectTrack(index: number) {
+    if (index === currentIndex) {
+      // if same track, just toggle
+      handlePlayPause();
+      return;
+    }
+    setCurrentIndex(index);
+    // stop old track if playing
+    stopAudio();
+    // once user clicks play, we’ll fetch+decode
+  }
+
+  // Actually fetch+decode the selected track
   async function loadAndPlayBuffer(src: string) {
-    if (!audioContextRef.current) return;
+    if (!audioContextRef.current || !analyserRef.current) return;
     const audioCtx = audioContextRef.current;
+    // make sure context is resumed
     if (audioCtx.state === "suspended") {
       await audioCtx.resume();
     }
 
-    // If cached
+    // if we already have it in the cache, use that
     if (bufferCacheRef.current[src]) {
       startBuffer(bufferCacheRef.current[src]);
       return;
     }
 
-    // Fetch + decode
-    const res = await fetch(src);
-    const arrBuf = await res.arrayBuffer();
-    const audioBuf = await audioCtx.decodeAudioData(arrBuf);
-    bufferCacheRef.current[src] = audioBuf;
-    startBuffer(audioBuf);
+    try {
+      const response = await fetch(src);
+      const arrayBuf = await response.arrayBuffer();
+      const audioBuf = await audioCtx.decodeAudioData(arrayBuf);
+      bufferCacheRef.current[src] = audioBuf;
+      startBuffer(audioBuf);
+    } catch (err) {
+      console.error("Decode error:", err);
+    }
   }
 
-  // Start playing
   function startBuffer(audioBuf: AudioBuffer) {
-    stopAudio(); // stop any old
-    if (!audioContextRef.current) return;
+    stopAudio(); // ensure no old source is playing
+    if (!audioContextRef.current || !analyserRef.current) return;
 
-    const source = audioContextRef.current.createBufferSource();
-    source.buffer = audioBuf;
-    source.connect(audioContextRef.current.destination);
-    source.start(0);
-    sourceRef.current = source;
+    const audioCtx = audioContextRef.current;
+    const analyser = analyserRef.current;
+    const sourceNode = audioCtx.createBufferSource();
+    sourceNode.buffer = audioBuf;
+    sourceNode.connect(analyser);
+    analyser.connect(audioCtx.destination);
+
+    sourceNodeRef.current = sourceNode;
+    sourceNode.start(0);
     setIsPlaying(true);
 
-    source.onended = () => setIsPlaying(false);
+    // If you want it to stop automatically after it ends, you can do:
+    sourceNode.onended = () => {
+      setIsPlaying(false);
+    };
   }
 
-  // Stop
   function stopAudio() {
-    if (sourceRef.current) {
+    if (sourceNodeRef.current) {
       try {
-        sourceRef.current.stop();
+        sourceNodeRef.current.stop();
       } catch {}
-      sourceRef.current.disconnect();
-      sourceRef.current = null;
+      sourceNodeRef.current.disconnect();
+      sourceNodeRef.current = null;
     }
     setIsPlaying(false);
   }
 
-  // Handle list click
-  async function handleSelectTrack(index: number) {
-    setCurrentIndex(index);
-    const { src } = audioFiles[index];
-    await loadAndPlayBuffer(src);
-  }
-
-  // optional toggle button
-  function handlePlayPause() {
+  async function handlePlayPause() {
     if (isPlaying) {
+      // pause
       stopAudio();
-    } else if (currentIndex != null) {
-      loadAndPlayBuffer(audioFiles[currentIndex].src);
+    } else {
+      // play
+      if (currentIndex == null) {
+        return; // no track selected
+      }
+      const selectedTrack = audioFiles[currentIndex];
+      await loadAndPlayBuffer(selectedTrack.src);
     }
   }
 
   return (
-    <section
-      style={{
-        backgroundColor: "#333",
-        color: "#fff",
-        padding: "20px",
-        minHeight: "50vh",
-      }}
-    >
-      <h2 style={{ fontSize: "1.5rem", marginBottom: "1rem" }}>
-        Bret&apos;s Voice Samples
-      </h2>
+    <section id="voice" className="p-8 bg-black text-white">
+      <h2 className="text-2xl font-bold mb-4">Bret&apos;s Voice Samples</h2>
+      <div className="mb-4 relative bg-black" style={{ height: "240px" }}>
+        <canvas
+          ref={canvasRef}
+          width={640}
+          height={240}
+          className="w-full h-full"
+          style={{ display: "block", backgroundColor: "black" }}
+        />
+        <button
+          onClick={handlePlayPause}
+          className="absolute right-4 top-1/2 transform -translate-y-1/2 rounded-full
+                     bg-gradient-to-r from-blue-400 to-blue-600 text-white
+                     flex items-center justify-center shadow-lg"
+          style={{ width: "150px", height: "150px", fontSize: "2rem" }}
+        >
+          {isPlaying ? "⏸" : "▶"}
+        </button>
+      </div>
 
-      {/* Optional Play/Pause button */}
-      <button
-        onClick={handlePlayPause}
-        style={{
-          marginBottom: "10px",
-          padding: "10px",
-          backgroundColor: "#555",
-          color: "#fff",
-          border: "1px solid #ccc",
-          cursor: "pointer",
-        }}
-      >
-        {isPlaying ? "Pause" : "Play"}
-      </button>
-
-      {/* Track list */}
-      <ol style={{ listStyleType: "decimal", paddingLeft: "20px" }}>
+      <ol className="list-decimal pl-6 space-y-2">
         {audioFiles.map((file, idx) => (
-          <li key={file.src} style={{ margin: "10px 0" }}>
+          <li key={file.src}>
             <button
               onClick={() => handleSelectTrack(idx)}
-              style={{
-                backgroundColor: "#444",
-                color: "#fff",
-                border: "1px solid #666",
-                cursor: "pointer",
-                padding: "5px 10px",
-              }}
+              className="text-left hover:underline"
             >
               {file.title}
             </button>
             {idx === currentIndex && (
-              <span style={{ marginLeft: "8px", fontSize: "0.9rem" }}>
-                (Selected)
-              </span>
+              <span className="ml-2 text-sm text-gray-400">(Selected)</span>
             )}
           </li>
         ))}
@@ -281,13 +430,11 @@ function VoiceActingSection() {
     </section>
   );
 }
-// ------------------ Additional Sections (same as your code) --------------
+
+
 const AboutMeSection = () => {
   return (
-    <section
-      id="about"
-      className="p-8 flex flex-col md:flex-row items-center gap-8 bg-black"
-    >
+    <section id="about" className="p-8 flex flex-col md:flex-row items-center gap-8 bg-black">
       <Image
         src="https://ucarecdn.com/82d8fda7-534c-4576-805c-c048b96aaecd/BretLindquistActorHeadshot.webp"
         alt="About Me"
@@ -296,9 +443,7 @@ const AboutMeSection = () => {
         className="rounded-lg"
       />
       <p className="text-lg leading-relaxed">
-        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent
-        vehicula, nisi ut aliquet scelerisque, sapien arcu tristique lectus, nec
-        tincidunt velit nisl vel metus.
+        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent vehicula, nisi ut aliquet scelerisque, sapien arcu tristique lectus, nec tincidunt velit nisl vel metus.
       </p>
     </section>
   );
@@ -307,32 +452,11 @@ const AboutMeSection = () => {
 const ContactSection = () => {
   return (
     <section id="contact" className="p-8 bg-black">
-      <form
-        action="#"
-        method="POST"
-        className="flex flex-col gap-4 max-w-md mx-auto"
-      >
-        <input
-          type="text"
-          name="name"
-          placeholder="Your Name"
-          className="p-2 rounded-md text-black"
-        />
-        <input
-          type="email"
-          name="email"
-          placeholder="Your Email"
-          className="p-2 rounded-md text-black"
-        />
-        <textarea
-          name="message"
-          placeholder="Your Message"
-          rows={5}
-          className="p-2 rounded-md text-black"
-        ></textarea>
-        <button type="submit" className="bg-white text-black px-4 py-2 rounded-md">
-          Send
-        </button>
+      <form action="#" method="POST" className="flex flex-col gap-4 max-w-md mx-auto">
+        <input type="text" name="name" placeholder="Your Name" className="p-2 rounded-md text-black" />
+        <input type="email" name="email" placeholder="Your Email" className="p-2 rounded-md text-black" />
+        <textarea name="message" placeholder="Your Message" rows={5} className="p-2 rounded-md text-black"></textarea>
+        <button type="submit" className="bg-white text-black px-4 py-2 rounded-md">Send</button>
       </form>
     </section>
   );
