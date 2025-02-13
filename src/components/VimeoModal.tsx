@@ -45,9 +45,14 @@ const VimeoModal: React.FC<VimeoModalProps> = ({ isOpen, onRequestClose, vimeoUr
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
+      document.body.classList.add('video-open'); // Add class to disable header.
+    } else {
+      document.body.style.overflow = '';
+      document.body.classList.remove('video-open');
     }
     return () => {
       document.body.style.overflow = '';
+      document.body.classList.remove('video-open');
     };
   }, [isOpen]);
 
@@ -63,7 +68,7 @@ const VimeoModal: React.FC<VimeoModalProps> = ({ isOpen, onRequestClose, vimeoUr
 
   useEffect(() => {
     if (isOpen) {
-      document.addEventListener('keydown', handleKeyDown, true); // capture phase
+      document.addEventListener('keydown', handleKeyDown, true); // use capture phase.
     }
     return () => {
       document.removeEventListener('keydown', handleKeyDown, true);
@@ -83,7 +88,7 @@ const VimeoModal: React.FC<VimeoModalProps> = ({ isOpen, onRequestClose, vimeoUr
         }
       });
 
-      // Additionally, attempt to listen for the native iOS fullscreen exit event.
+      // Also listen for iOS native fullscreen exit.
       if (internalPlayer && (internalPlayer as any).addEventListener) {
         (internalPlayer as any).addEventListener('webkitendfullscreen', () => {
           onRequestClose();
