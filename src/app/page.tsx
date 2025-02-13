@@ -12,7 +12,6 @@ export default function Home() {
       <main>
         <HeroSection />
         <ActingSection />
-        <AudioTests />
         <VoiceActingSection />
         <AboutMeSection />
         <ContactSection />
@@ -106,108 +105,6 @@ const ActingSection = () => {
   );
 };
 
-const AudioTests = () => {
-  const audioFiles = [
-    {
-      src: "https://ucarecdn.com/46c9f4ee-f6f9-467a-a2f3-71d5f4503376/BretLindquist2025Samples.mp3",
-      title: "Bret's Reel",
-    },
-    {
-      src: "https://ucarecdn.com/93e6ae68-18a5-4253-8e5d-6174f4c608f9/2025BretCharDemo.mp3",
-      title: "Characters",
-    },
-    {
-      src: "https://ucarecdn.com/237b8f2e-4b83-457f-8740-0e85f069a004/VariousCharacters.mp3",
-      title: "Characters More",
-    },
-    {
-      src: "https://ucarecdn.com/1e10d202-e465-4f1a-a9477-8630078312ef/calltoduty4.mp3",
-      title: "TV Ad",
-    },
-    {
-      src: "https://ucarecdn.com/a5879b78-89a7-483d-b668-aa1c423fa1a8/firecountry.mp3",
-      title: "TV Prime Time",
-    },
-    {
-      src: "https://ucarecdn.com/c5ad268d-24f5-47f6-a52c-5f2bd4f9d9b7/Project1.mp3",
-      title: "Video Game",
-    },
-    {
-      src: "https://ucarecdn.com/5adfdf11-a726-4abb-820d-3969b4b3d07b/rainforests_of_borneo5.mp3",
-      title: "Narration",
-    },
-  ];
-
-  const [currentAudio, setCurrentAudio] = useState<string | null>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-
-  const playSimpleAudio = (src: string) => {
-    const audio = new Audio(src);
-    audio.play().catch(console.error);
-  };
-
-  const playControlledAudio = (src: string) => {
-    setCurrentAudio(src);
-    setIsPlaying(false);
-  };
-
-  useEffect(() => {
-    if (currentAudio && audioRef.current) {
-      audioRef.current.src = currentAudio;
-      audioRef.current.play()
-        .then(() => setIsPlaying(true))
-        .catch(console.error);
-    }
-  }, [currentAudio]);
-
-  const togglePlayPause = () => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause();
-      } else {
-        audioRef.current.play().catch(console.error);
-      }
-      setIsPlaying(!isPlaying);
-    }
-  };
-
-  return (
-    <section id="audio-tests" className="p-8 bg-black text-white">
-      <h2>Audio Tests</h2>
-
-      <h3>Simple Audio (No Controls)</h3>
-      <ul>
-        {audioFiles.map((file, index) => (
-          <li key={index}>
-            <button onClick={() => playSimpleAudio(file.src)}>{file.title}</button>
-          </li>
-        ))}
-      </ul>
-
-      <h3>Controlled Audio (Play/Pause)</h3>
-      <ul>
-        {audioFiles.map((file, index) => (
-          <li key={index}>
-            <button onClick={() => playControlledAudio(file.src)}>{file.title}</button>
-          </li>
-        ))}
-      </ul>
-      {currentAudio && (
-        <audio ref={audioRef} controls style={{display: 'none'}}/>
-      )}
-      {currentAudio && (
-        <button onClick={togglePlayPause}>{isPlaying ? "Pause" : "Play"}</button>
-      )}
-    </section>
-  );
-};
-
-/*
-  Sample data using escaped apostrophes:
-  { src: "https://ucarecdn.com/46c9f4ee-f6f9-467a-a2f3-71d5f4503376/BretLindquist2025Samples.mp3", title: "Bret&apos;s Reel" },
-  ...
-*/
 
 interface AudioFile {
   src: string;
@@ -246,89 +143,77 @@ const audioFiles: AudioFile[] = [
 ];
 
 function VoiceActingSection() {
-  // State for the current audio source and playback status.
+  // Track the currently selected audio source and its playing status.
   const [currentAudioSrc, setCurrentAudioSrc] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
-  // Refs for the hidden audio element and the waveform canvas.
+  // Refs for our audio element and canvas.
   const audioRef = useRef<HTMLAudioElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Create a persistent AudioContext, analyser, and media source.
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const mediaSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const animationRef = useRef<number | null>(null);
 
-  // Toggle play/pause.
-  const togglePlayPause = useCallback(() => {
-    if (!audioRef.current) return;
-    if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    } else {
-      audioRef.current
-        .play()
-        .then(() => setIsPlaying(true))
-        .catch((err) => console.error("Playback error:", err));
-    }
-  }, [isPlaying]);
-
-  // Handle selecting a new audio file.
-  const handleSelectAudio = useCallback(
-    (src: string) => {
-      if (src === currentAudioSrc) {
-        togglePlayPause();
-        return;
-      }
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.currentTime = 0;
-      }
-      setIsPlaying(false);
-      setCurrentAudioSrc(src);
-    },
-    [currentAudioSrc, togglePlayPause]
-  );
-
-  // Set up the waveform visualizer.
+  // Initialize the AudioContext once.
   useEffect(() => {
-    if (!audioRef.current || !canvasRef.current) return;
-    const audio = audioRef.current;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    // Create a new AudioContext.
-    interface ExtendedWindow extends Window {
-      webkitAudioContext?: typeof AudioContext;
+    if (!audioContextRef.current) {
+      const AudioContextConstructor =
+        window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioContextConstructor) {
+        audioContextRef.current = new AudioContextConstructor();
+      } else {
+        console.error("Web Audio API not supported.");
+      }
     }
-    const extendedWindow = window as ExtendedWindow;
-    const AudioContextConstructor = window.AudioContext || extendedWindow.webkitAudioContext;
-    if (!AudioContextConstructor) {
-      console.error("Web Audio API not supported.");
-      return;
-    }
-    const audioContext = new AudioContextConstructor();
+  }, []);
 
-    // Resume the AudioContext if it is suspended.
-    if (audioContext.state === "suspended") {
-      audioContext.resume();
-    }
-    
-    const analyser = audioContext.createAnalyser();
-    analyser.fftSize = 2048;
+  // Whenever a new audio source is selected, update the audio element and reconnect
+  // the media element to the analyser.
+  useEffect(() => {
+    if (!audioRef.current || !audioContextRef.current || !currentAudioSrc) return;
 
-    let source;
+    // Set the new source without re-mounting the element.
+    audioRef.current.src = currentAudioSrc;
+    audioRef.current.load();
+
+    // Disconnect any previous source.
+    if (mediaSourceRef.current) {
+      mediaSourceRef.current.disconnect();
+    }
     try {
-      source = audioContext.createMediaElementSource(audio);
+      mediaSourceRef.current = audioContextRef.current.createMediaElementSource(
+        audioRef.current
+      );
     } catch (err) {
       console.error("Error creating MediaElementSource:", err);
       return;
     }
-    source.connect(analyser);
-    analyser.connect(audioContext.destination);
 
-    const bufferLength = analyser.frequencyBinCount;
+    // Create (or recreate) the analyser.
+    if (analyserRef.current) {
+      analyserRef.current.disconnect();
+    }
+    analyserRef.current = audioContextRef.current.createAnalyser();
+    analyserRef.current.fftSize = 2048;
+
+    // Connect the nodes: audio -> analyser -> destination.
+    mediaSourceRef.current.connect(analyserRef.current);
+    analyserRef.current.connect(audioContextRef.current.destination);
+
+    // Start the visualizer.
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const bufferLength = analyserRef.current.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
 
     const draw = () => {
-      analyser.getByteTimeDomainData(dataArray);
+      if (!analyserRef.current) return;
+      analyserRef.current.getByteTimeDomainData(dataArray);
       ctx.fillStyle = "black";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.lineWidth = 2;
@@ -352,13 +237,51 @@ function VoiceActingSection() {
 
     draw();
 
+    // Cleanup on source change.
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
-      audioContext.close();
     };
   }, [currentAudioSrc]);
 
-  // Auto-play new audio when currentAudioSrc changes.
+  // Toggle play/pause and ensure the AudioContext is running.
+  const togglePlayPause = useCallback(() => {
+    if (!audioRef.current || !audioContextRef.current) return;
+
+    // Resume the AudioContext if it’s suspended.
+    if (audioContextRef.current.state === "suspended") {
+      audioContextRef.current.resume().catch(console.error);
+    }
+
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      audioRef.current
+        .play()
+        .then(() => setIsPlaying(true))
+        .catch((err) => console.error("Playback error:", err));
+    }
+  }, [isPlaying]);
+
+  // When a new file is selected, if it’s already the current file then toggle play/pause.
+  const handleSelectAudio = useCallback(
+    (src: string) => {
+      if (src === currentAudioSrc) {
+        togglePlayPause();
+      } else {
+        // If a new source is selected, pause and reset the audio element.
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+        }
+        setIsPlaying(false);
+        setCurrentAudioSrc(src);
+      }
+    },
+    [currentAudioSrc, togglePlayPause]
+  );
+
+  // Auto-play when currentAudioSrc changes.
   useEffect(() => {
     if (currentAudioSrc && audioRef.current) {
       audioRef.current
@@ -374,7 +297,6 @@ function VoiceActingSection() {
       <div className="mb-4 relative bg-black" style={{ height: "200px" }}>
         <canvas
           ref={canvasRef}
-          key={currentAudioSrc || "empty"}
           width={640}
           height={200}
           className="w-full h-full"
@@ -399,12 +321,14 @@ function VoiceActingSection() {
           </li>
         ))}
       </ol>
-      {currentAudioSrc && (
-        <audio key={currentAudioSrc} ref={audioRef} src={currentAudioSrc} />
-      )}
+      {/* The audio element stays mounted so we can reuse it */}
+      <audio ref={audioRef} style={{ display: "none" }} />
     </section>
   );
 }
+
+
+
 
 const AboutMeSection = () => {
   return (
