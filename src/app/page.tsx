@@ -146,137 +146,134 @@ const audioFiles: AudioFile[] = [
 
 // ------------------- VoiceActingSection (Decode + Playback) ----------------
 function VoiceActingSection() {
-  // Track the selected and playing
   const [currentIndex, setCurrentIndex] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
-  // AudioContext / Analyser / Buffer Cache
   const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
+  const sourceRef = useRef<AudioBufferSourceNode | null>(null);
   const bufferCacheRef = useRef<{ [src: string]: AudioBuffer }>({});
-  const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
 
-  // Initialize the AudioContext + Analyser once
+  // Create AudioContext once
   useEffect(() => {
     if (!audioContextRef.current) {
       const AC = window.AudioContext || (window as any).webkitAudioContext;
       audioContextRef.current = new AC();
     }
-    if (!analyserRef.current && audioContextRef.current) {
-      analyserRef.current = audioContextRef.current.createAnalyser();
-      analyserRef.current.fftSize = 2048;
-    }
   }, []);
 
-  // --------------------- Play/Pause Controls ---------------------
-  async function handleSelectTrack(index: number) {
-    // If they click another track, we want to auto-play it immediately
-    stopAudio(); 
-    setCurrentIndex(index);
-    const selectedTrack = audioFiles[index];
-    await loadAndPlayBuffer(selectedTrack.src);
-  }
-
-  function handlePlayPause() {
-    if (isPlaying) {
-      // Pause
-      stopAudio();
-    } else if (currentIndex != null) {
-      // Resume or play the current
-      const { src } = audioFiles[currentIndex];
-      loadAndPlayBuffer(src);
-    }
-  }
-
+  // Load + play buffer
   async function loadAndPlayBuffer(src: string) {
-    if (!audioContextRef.current || !analyserRef.current) return;
+    if (!audioContextRef.current) return;
     const audioCtx = audioContextRef.current;
     if (audioCtx.state === "suspended") {
       await audioCtx.resume();
     }
 
+    // If cached
     if (bufferCacheRef.current[src]) {
       startBuffer(bufferCacheRef.current[src]);
       return;
     }
 
-    try {
-      const response = await fetch(src);
-      const arrayBuf = await response.arrayBuffer();
-      const audioBuf = await audioCtx.decodeAudioData(arrayBuf);
-      bufferCacheRef.current[src] = audioBuf;
-      startBuffer(audioBuf);
-    } catch (err) {
-      console.error("Decode error:", err);
-    }
+    // Fetch + decode
+    const res = await fetch(src);
+    const arrBuf = await res.arrayBuffer();
+    const audioBuf = await audioCtx.decodeAudioData(arrBuf);
+    bufferCacheRef.current[src] = audioBuf;
+    startBuffer(audioBuf);
   }
 
+  // Start playing
   function startBuffer(audioBuf: AudioBuffer) {
-    stopAudio(); // ensure no old source is playing
-    if (!audioContextRef.current || !analyserRef.current) return;
+    stopAudio(); // stop any old
+    if (!audioContextRef.current) return;
 
-    const sourceNode = audioContextRef.current.createBufferSource();
-    sourceNode.buffer = audioBuf;
-    sourceNode.connect(analyserRef.current);
-    analyserRef.current.connect(audioContextRef.current.destination);
-
-    sourceNodeRef.current = sourceNode;
-    sourceNode.start(0);
+    const source = audioContextRef.current.createBufferSource();
+    source.buffer = audioBuf;
+    source.connect(audioContextRef.current.destination);
+    source.start(0);
+    sourceRef.current = source;
     setIsPlaying(true);
 
-    sourceNode.onended = () => {
-      setIsPlaying(false);
-    };
+    source.onended = () => setIsPlaying(false);
   }
 
+  // Stop
   function stopAudio() {
-    if (sourceNodeRef.current) {
+    if (sourceRef.current) {
       try {
-        sourceNodeRef.current.stop();
+        sourceRef.current.stop();
       } catch {}
-      sourceNodeRef.current.disconnect();
-      sourceNodeRef.current = null;
+      sourceRef.current.disconnect();
+      sourceRef.current = null;
     }
     setIsPlaying(false);
   }
 
+  // Handle list click
+  async function handleSelectTrack(index: number) {
+    setCurrentIndex(index);
+    const { src } = audioFiles[index];
+    await loadAndPlayBuffer(src);
+  }
+
+  // optional toggle button
+  function handlePlayPause() {
+    if (isPlaying) {
+      stopAudio();
+    } else if (currentIndex != null) {
+      loadAndPlayBuffer(audioFiles[currentIndex].src);
+    }
+  }
+
   return (
-    <section id="voice" className="p-8 bg-black text-white">
-      <h2 className="text-2xl font-bold mb-4">Bret&apos;s Voice Samples</h2>
+    <section
+      style={{
+        backgroundColor: "#333",
+        color: "#fff",
+        padding: "20px",
+        minHeight: "50vh",
+      }}
+    >
+      <h2 style={{ fontSize: "1.5rem", marginBottom: "1rem" }}>
+        Bret&apos;s Voice Samples
+      </h2>
 
-      {/* Visualizer */}
-      <div className="mb-4 relative bg-black" style={{ height: "240px" }}>
-        <FancyVisualizer
-          analyser={analyserRef.current}
-          isPlaying={isPlaying}
-          width={640}
-          height={240}
-        />
-        {/* Play/Pause button (optional). If you only want auto-play on track-click,
-            you can remove this button entirely. */}
-        <button
-          onClick={handlePlayPause}
-          className="absolute right-4 top-1/2 transform -translate-y-1/2 rounded-full
-                     bg-gradient-to-r from-blue-400 to-blue-600 text-white
-                     flex items-center justify-center shadow-lg"
-          style={{ width: "150px", height: "150px", fontSize: "2rem" }}
-        >
-          {isPlaying ? "⏸" : "▶"}
-        </button>
-      </div>
+      {/* Optional Play/Pause button */}
+      <button
+        onClick={handlePlayPause}
+        style={{
+          marginBottom: "10px",
+          padding: "10px",
+          backgroundColor: "#555",
+          color: "#fff",
+          border: "1px solid #ccc",
+          cursor: "pointer",
+        }}
+      >
+        {isPlaying ? "Pause" : "Play"}
+      </button>
 
-      {/* Track List */}
-      <ol className="list-decimal pl-6 space-y-2">
+      {/* Track list */}
+      <ol style={{ listStyleType: "decimal", paddingLeft: "20px" }}>
         {audioFiles.map((file, idx) => (
-          <li key={file.src}>
+          <li key={file.src} style={{ margin: "10px 0" }}>
             <button
               onClick={() => handleSelectTrack(idx)}
-              className="text-left hover:underline"
+              style={{
+                backgroundColor: "#444",
+                color: "#fff",
+                border: "1px solid #666",
+                cursor: "pointer",
+                padding: "5px 10px",
+              }}
             >
               {file.title}
             </button>
             {idx === currentIndex && (
-              <span className="ml-2 text-sm text-gray-400">(Selected)</span>
+              <span style={{ marginLeft: "8px", fontSize: "0.9rem" }}>
+                (Selected)
+              </span>
             )}
           </li>
         ))}
@@ -284,7 +281,6 @@ function VoiceActingSection() {
     </section>
   );
 }
-
 // ------------------ Additional Sections (same as your code) --------------
 const AboutMeSection = () => {
   return (
