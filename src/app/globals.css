@@ -66,3 +66,26 @@ body.video-open header {
 .animate-fade-in {
   animation: fadeIn 1s forwards;
 }
+
+.list-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.overflow-y-auto::-webkit-scrollbar {
+  width: 8px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}

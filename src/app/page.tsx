@@ -437,7 +437,7 @@ function VoiceActingSection() {
 
 const AboutMeSection = () => {
   return (
-    <section id="about" className="p-8 flex flex-col md:flex-row items-center gap-8 bg-black">
+    <section id="about" className="p-8 flex flex-col md:flex-row items-start gap-8 bg-black text-white">
       <Image
         src="https://ucarecdn.com/82d8fda7-534c-4576-805c-c048b96aaecd/BretLindquistActorHeadshot.webp"
         alt="About Me"
@@ -445,12 +445,80 @@ const AboutMeSection = () => {
         height={300}
         className="rounded-lg"
       />
-      <p className="text-lg leading-relaxed">
-        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent vehicula, nisi ut aliquet scelerisque, sapien arcu tristique lectus, nec tincidunt velit nisl vel metus.
-      </p>
+      <div className="flex-1 overflow-y-auto max-h-[80vh]">
+        <h2 className="text-2xl font-bold mb-4">About Me</h2>
+        <p className="text-lg leading-relaxed mb-6">
+          I am a versatile actor with extensive experience in drama, action, and stunt roles across various Korean television series and movies.
+        </p>
+        <div className="space-y-8">
+          <div>
+            <h3 className="text-xl font-semibold mb-2">Drama Roles</h3>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>Supporting Role - KBS [24-Hour Health Club] Episodes 7, 38, 39 - Knock-off ICE agent</li>
+              <li>Recurring Supporting Role - The Fiery Priest 2 - Jeremy Brown, Drug Dealer (Episodes 1 & 2)</li>
+              <li>Recurring Supporting Role - Polaris - Red Feather, Billie Grey, Marine Sniper Hitman</li>
+              <li>Recurring Supporting Role - The Brave and Dashing Yongjujeong - James Weaver, U.S. Businessman and Traveler</li>
+              <li>Supporting Role - Influenza</li>
+              <li>ADR - Ask the Stars</li>
+              <li>Recurring Supporting Role - The Brave and Dashing Yongsujeong</li>
+              <li>Supporting Role - MBC Investigation Team: The Beginning - Dynamite Man</li>
+              <li>Supporting Role - Ask the Stars - Investigation Team Leader (Episode 14)</li>
+              <li>Supporting Role - High Class - Yacht Driver / Mafia Assassin</li>
+              <li>Supporting Role - Remarriage & Desires - Yacht Captain</li>
+              <li>Supporting Role - SBS Racket Boys - Match Announcer</li>
+              <li>Supporting Role - Revolutionary Sisters - Tourist</li>
+              <li>Supporting Role - Dali and Cocky Prince - Hotel Manager</li>
+              <li>Supporting Role - Run On - American Journalist</li>
+              <li>Supporting Role - Start-Up - CEO</li>
+              <li>Supporting Role - SBS One the Woman - Secretary</li>
+              <li>Supporting Role - King Maker: The Change of Destiny - Soldier (Stunt)</li>
+              <li>Recurring Supporting Role - When I Was the Prettiest</li>
+              <li>Supporting Role - Itaewon Class (February 17, 2020)</li>
+              <li>Anchor - The King: Eternal Monarch (Voice/ADR)</li>
+              <li>Main Recurring Supporting Role - Spring Turns to Spring (Episodes 3, 4, 5, 6, 7) - Stunt (Driving/Fighting)</li>
+              <li>Supporting Role - My Strange Hero (2019)</li>
+              <li>Lead Supporting Role - Twelve Nights (Episodes 5, 6, 7, 8, 2018)</li>
+              <li>Recurring Supporting Role - I Am Also a Mother (Episodes 46, 57) [46 - 2018/08/01, 57 - 2018/08/16]</li>
+              <li>Supporting Role - Welcome to Waikiki (Episode 12, March 20, 2018)</li>
+              <li>Supporting Role - Where Stars Land (Episode 5, 2018/10/15)</li>
+              <li>Supporting Role - Hold My Hand and Look at the Setting Sun (Episode 3, 2018/03/22)</li>
+              <li>Recurring Supporting Role - Run On (October-November 2020)</li>
+              <li>Recurring Supporting Role - Start-Up - CEO</li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-xl font-semibold mb-2">Stunt / Action Roles</h3>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>Knock-off - Miami USA - Gun & Weapons Training</li>
+              <li>The Fiery Priest 2 - Drug Dealer Gun Fight and Hand-to-Hand Combat</li>
+              <li>French Expedition to Korea - Action Fighting Scene</li>
+              <li>Supporting Role - My Strange Hero (2019)</li>
+              <li>Supporting Role - King Maker: The Change of Destiny - Soldier (Stunt)</li>
+              <li>Recurring Supporting Role - When I Was the Prettiest</li>
+              <li>Supporting Role - High Class - Yacht Driver / Mafia Assassin</li>
+              <li>Supporting Role - Remarriage & Desires - Yacht Captain</li>
+              <li>Supporting Role - MBC Investigation Team: The Beginning - Dynamite Man</li>
+              <li>Recurring Supporting Role - The Fiery Priest 2 - Jeremy Brown, Drug Dealer</li>
+              <li>Recurring Supporting Role - Polaris - Red Feather, Billie Grey, Marine Sniper Hitman</li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-xl font-semibold mb-2">Movie Appearances</h3>
+            <ul className="list-inline">
+              <li className="inline-block bg-gray-800 px-3 py-1 rounded-full text-sm mb-2 mr-2">Ashfall (백두산) - CIA</li>
+              <li className="inline-block bg-gray-800 px-3 py-1 rounded-full text-sm mb-2 mr-2">Seobok (서복) - Soldier/CIA</li>
+              <li className="inline-block bg-gray-800 px-3 py-1 rounded-full text-sm mb-2 mr-2">Battle of Jangsari (장사리 9.15)</li>
+              <li className="inline-block bg-gray-800 px-3 py-1 rounded-full text-sm mb-2 mr-2">Hunt</li>
+              <li className="inline-block bg-gray-800 px-3 py-1 rounded-full text-sm mb-2 mr-2">Carter</li>
+              <li className="inline-block bg-gray-800 px-3 py-1 rounded-full text-sm mb-2 mr-2">Boston Marathon</li>
+            </ul>
+          </div>
+        </div>
+      </div>
     </section>
   );
 };
+
 
 const ContactSection = () => {
   return (
