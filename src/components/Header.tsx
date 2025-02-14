@@ -19,11 +19,10 @@ const Header = () => {
       {menuOpen && (
         <nav className="bg-black text-white p-4">
           <ul className="space-y-2">
-            <li><a href="#hero">Hero Section</a></li>
-            <li><a href="#acting">Acting Section</a></li>
-            <li><a href="#voice">Voice Acting Section</a></li>
-            <li><a href="#about">About Me Section</a></li>
-            <li><a href="#contact">Contact Section</a></li>
+            <li><a href="#acting">Acting</a></li>
+            <li><a href="#voice">Voice Acting</a></li>
+            <li><a href="#about">About Me</a></li>
+            <li><a href="#contact">Contact</a></li>
           </ul>
         </nav>
       )}
