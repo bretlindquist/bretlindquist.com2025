@@ -4,6 +4,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import Header from "../components/Header";
 import Image from "next/image";
 import VimeoModal from '../components/VimeoModal';
+import emailjs from '@emailjs/browser';
 
 export default function Home() {
   return (
@@ -521,17 +522,52 @@ const AboutMeSection = () => {
 
 
 const ContactSection = () => {
+  const form = useRef<HTMLFormElement>(null);
+  const [isSent, setIsSent] = useState(false);
+
+  const sendEmail = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    emailjs.sendForm('YOUR_SERVICE_ID', 'YOUR_TEMPLATE_ID', form.current!, 'YOUR_PUBLIC_KEY')
+      .then((result) => {
+        console.log(result.text);
+        setIsSent(true);
+        if (form.current) {
+          form.current.reset();
+        }
+      }, (error) => {
+        console.log(error.text);
+      });
+  };
+
   return (
-    <section id="contact" className="p-8 bg-black">
-      <form action="#" method="POST" className="flex flex-col gap-4 max-w-md mx-auto">
-        <input type="text" name="name" placeholder="Your Name" className="p-2 rounded-md text-black" />
-        <input type="email" name="email" placeholder="Your Email" className="p-2 rounded-md text-black" />
-        <textarea name="message" placeholder="Your Message" rows={5} className="p-2 rounded-md text-black"></textarea>
-        <button type="submit" className="bg-white text-black px-4 py-2 rounded-md">Send</button>
-      </form>
+    <section id="contact" className="p-8 bg-black text-white">
+      <h2 className="text-2xl font-bold mb-4">Contact Me</h2>
+      {isSent ? (
+        <p>Thank you for your message! I will get back to you soon.</p>
+      ) : (
+        <form ref={form} onSubmit={sendEmail} className="space-y-4">
+          <div>
+            <label htmlFor="name" className="block text-sm font-medium text-gray-300">Name</label>
+            <input type="text" id="name" name="name" className="mt-1 p-2 w-full bg-gray-700 text-white rounded-md focus:ring focus:ring-blue-500 focus:border-blue-500"/>
+          </div>
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-300">Email</label>
+            <input type="email" id="email" name="email" className="mt-1 p-2 w-full bg-gray-700 text-white rounded-md focus:ring focus:ring-blue-500 focus:border-blue-500"/>
+          </div>
+          <div>
+            <label htmlFor="message" className="block text-sm font-medium text-gray-300">Message</label>
+            <textarea id="message" name="message" rows={4} className="mt-1 p-2 w-full bg-gray-700 text-white rounded-md focus:ring focus:ring-blue-500 focus:border-blue-500"></textarea>
+          </div>
+          <div>
+            <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring focus:ring-blue-300">Send Message</button>
+          </div>
+        </form>
+      )}
     </section>
   );
 };
+
 
 const Footer = () => {
   return (
