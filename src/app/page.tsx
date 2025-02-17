@@ -4,7 +4,6 @@ import React, { useRef, useEffect, useState } from 'react';
 import Header from "../components/Header";
 import Image from "next/image";
 import VimeoModal from '../components/VimeoModal';
-import emailjs from '@emailjs/browser';
 
 export default function Home() {
   return (
@@ -522,49 +521,70 @@ const AboutMeSection = () => {
 
 
 const ContactSection = () => {
-  const form = useRef<HTMLFormElement>(null);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [message, setMessage] = useState('');
   const [isSent, setIsSent] = useState(false);
+  const [error, setError] = useState('');
 
-  const sendEmail = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
 
-    emailjs.sendForm('YOUR_SERVICE_ID', 'YOUR_TEMPLATE_ID', form.current!, 'YOUR_PUBLIC_KEY')
-      .then((result) => {
-        console.log(result.text);
-        setIsSent(true);
-        if (form.current) {
-          form.current.reset();
-        }
-      }, (error) => {
-        console.log(error.text);
-      });
+      try {
+          const response = await fetch('/api/send', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ name, email, message }),
+          });
+
+          if (response.ok) {
+              setIsSent(true);
+              setError('');
+              setName('');
+              setEmail('');
+              setMessage('');
+          } else {
+              setError('Failed to send message. Please try again.');
+          }
+      } catch (err) {
+          console.error('Failed to send...', err);
+          setError('Failed to send message. Please try again.');
+      }
   };
 
   return (
-    <section id="contact" className="p-8 bg-black text-white">
-      <h2 className="text-2xl font-bold mb-4">Contact Me</h2>
-      {isSent ? (
-        <p>Thank you for your message! I will get back to you soon.</p>
-      ) : (
-        <form ref={form} onSubmit={sendEmail} className="space-y-4">
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-300">Name</label>
-            <input type="text" id="name" name="name" className="mt-1 p-2 w-full bg-gray-700 text-white rounded-md focus:ring focus:ring-blue-500 focus:border-blue-500"/>
-          </div>
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-300">Email</label>
-            <input type="email" id="email" name="email" className="mt-1 p-2 w-full bg-gray-700 text-white rounded-md focus:ring focus:ring-blue-500 focus:border-blue-500"/>
-          </div>
-          <div>
-            <label htmlFor="message" className="block text-sm font-medium text-gray-300">Message</label>
-            <textarea id="message" name="message" rows={4} className="mt-1 p-2 w-full bg-gray-700 text-white rounded-md focus:ring focus:ring-blue-500 focus:border-blue-500"></textarea>
-          </div>
-          <div>
-            <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring focus:ring-blue-300">Send Message</button>
-          </div>
-        </form>
-      )}
-    </section>
+      <section id="contact" className="p-8 bg-black text-white">
+          <h2 className="text-2xl font-bold mb-4">Contact Me</h2>
+          {isSent ? (
+              <div className="text-green-500">
+                  <p>Thanks!</p>
+                  <p>I will get back to you as soon as possible.</p>
+                  <p>- Bret</p>
+                  <p>Sent Successfully.</p>
+              </div>
+          ) : (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                  {error && <p className="text-red-500">{error}</p>}
+                  <div>
+                      <label htmlFor="name" className="block text-sm font-medium text-gray-300">Name</label>
+                      <input type="text" id="name" name="name" value={name} onChange={(e) => setName(e.target.value)} className="mt-1 p-2 w-full bg-gray-700 text-white rounded-md focus:ring focus:ring-blue-500 focus:border-blue-500" />
+                  </div>
+                  <div>
+                      <label htmlFor="email" className="block text-sm font-medium text-gray-300">Email</label>
+                      <input type="email" id="email" name="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 p-2 w-full bg-gray-700 text-white rounded-md focus:ring focus:ring-blue-500 focus:border-blue-500" />
+                  </div>
+                  <div>
+                      <label htmlFor="message" className="block text-sm font-medium text-gray-300">Message</label>
+                      <textarea id="message" name="message" rows={4} value={message} onChange={(e) => setMessage(e.target.value)} className="mt-1 p-2 w-full bg-gray-700 text-white rounded-md focus:ring focus:ring-blue-500 focus:border-blue-500"></textarea>
+                  </div>
+                  <div>
+                      <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring focus:ring-blue-300">Send Message</button>
+                  </div>
+              </form>
+          )}
+      </section>
   );
 };
 
