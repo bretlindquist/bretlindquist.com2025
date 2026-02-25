@@ -51,20 +51,18 @@ export default function MusicPage() {
     if (!row) return
     setSearching(true)
     setError(null)
-    try {
-      const query = row.query.trim()
-      if (!query) throw new Error('empty query')
-      const encoded = encodeURIComponent(query)
-      // Vercel-safe: no server binary, direct YouTube search embed
-      const embedUrl = `https://www.youtube.com/embed?listType=search&list=${encoded}&autoplay=1&playsinline=1`
-      const url = `https://www.youtube.com/results?search_query=${encoded}`
-      setResult({ ok: true, embedUrl, url, title: query })
-    } catch (e: unknown) {
+    const r = await fetch('/api/music/search', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ query: row.query }),
+    })
+    const j = await r.json()
+    if (j.ok) setResult(j)
+    else {
       setResult(null)
-      setError(e instanceof Error ? e.message : 'search failed')
-    } finally {
-      setSearching(false)
+      setError(j.error || 'search failed')
     }
+    setSearching(false)
   }
 
   const stats = useMemo(() => {

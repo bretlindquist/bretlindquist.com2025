@@ -1,7 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { execFile } from 'node:child_process'
 
 export const runtime = 'nodejs'
+
+// NOTE: set YOUTUBE_DATA_API_KEY in Vercel env for production.
+const API_KEY = process.env.YOUTUBE_DATA_API_KEY || 'AIzaSyBPCyWUZbTC8nW5wv8cHHAkza_6qqPPY5Q'
+
+async function searchEmbeddable(query: string) {
+  const params = new URLSearchParams({
+    part: 'snippet',
+    type: 'video',
+    maxResults: '5',
+    q: query,
+    videoEmbeddable: 'true',
+    videoSyndicated: 'true',
+    key: API_KEY,
+  })
+
+  const url = `https://www.googleapis.com/youtube/v3/search?${params.toString()}`
+  const r = await fetch(url, { cache: 'no-store' })
+  if (!r.ok) {
+    const txt = await r.text()
+    throw new Error(`YouTube API ${r.status}: ${txt.slice(0, 180)}`)
+  }
+
+  const data = await r.json() as { items?: Array<{ id?: { videoId?: string }; snippet?: { title?: string; channelTitle?: string } }> }
+  const items = Array.isArray(data?.items) ? data.items : []
+  const first = items.find((it) => it?.id?.videoId)
+  if (!first?.id?.videoId) throw new Error('no embeddable result')
+
+  return {
+    videoId: first.id.videoId as string,
+    title: first.snippet?.title || query,
+    channel: first.snippet?.channelTitle || '',
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,33 +41,19 @@ export async function POST(req: NextRequest) {
     const query = String(body?.query || '').trim()
     if (!query) return NextResponse.json({ ok: false, error: 'query required' }, { status: 400 })
 
-    const result = await new Promise<{ ok: true; videoId: string; title: string; channel: string; url: string }>((resolve, reject) => {
-      execFile(
-        'yt-dlp',
-        ['-J', '--flat-playlist', '--no-warnings', `ytsearch1:${query}`],
-        { timeout: 45000, maxBuffer: 5 * 1024 * 1024 },
-        (err, stdout, stderr) => {
-          if (err) return reject(new Error((stderr || err.message || 'yt-dlp failed').slice(0, 400)))
-          try {
-            const data = JSON.parse(stdout)
-            const first = data?.entries?.[0]
-            if (!first?.id) return reject(new Error('no result'))
-            resolve({
-              ok: true,
-              videoId: first.id,
-              title: first.title || '',
-              channel: first.channel || first.uploader || '',
-              url: `https://www.youtube.com/watch?v=${first.id}`,
-            })
-          } catch (e: unknown) {
-            const message = e instanceof Error ? e.message : String(e)
-            reject(new Error(`parse failed: ${message}`))
-          }
-        }
-      )
-    })
+    if (!API_KEY) {
+      return NextResponse.json({ ok: false, error: 'missing YOUTUBE_DATA_API_KEY' }, { status: 500 })
+    }
 
-    return NextResponse.json(result)
+    const hit = await searchEmbeddable(query)
+    return NextResponse.json({
+      ok: true,
+      videoId: hit.videoId,
+      title: hit.title,
+      channel: hit.channel,
+      url: `https://www.youtube.com/watch?v=${hit.videoId}`,
+      embedUrl: `https://www.youtube.com/embed/${hit.videoId}?autoplay=1&playsinline=1`,
+    })
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'search failed'
     return NextResponse.json({ ok: false, error: message }, { status: 500 })
