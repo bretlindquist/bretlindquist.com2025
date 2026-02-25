@@ -4,7 +4,7 @@ import path from 'node:path'
 
 export const runtime = 'nodejs'
 
-const LISTS_DIR = process.env.MUSIC_SCAN_LISTS_DIR || `${process.cwd()}/data/music-lists`
+const LISTS_DIR = process.env.MUSIC_SCAN_LISTS_DIR || `${process.cwd()}/public/music-lists`
 
 function parseLines(text: string) {
   return text
