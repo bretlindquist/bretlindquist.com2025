@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
 type Entry = { index: number; raw: string; artist: string; album: string; query: string }
-type SearchResult = { ok: boolean; videoId: string; title: string; url: string; channel?: string }
+type SearchResult = { ok: boolean; embedUrl: string; url: string; title: string }
 
 export default function MusicPage() {
   const [files, setFiles] = useState<string[]>([])
@@ -51,18 +51,20 @@ export default function MusicPage() {
     if (!row) return
     setSearching(true)
     setError(null)
-    const r = await fetch('/api/music/search', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ query: row.query }),
-    })
-    const j = await r.json()
-    if (j.ok) setResult(j)
-    else {
+    try {
+      const query = row.query.trim()
+      if (!query) throw new Error('empty query')
+      const encoded = encodeURIComponent(query)
+      // Vercel-safe: no server binary, direct YouTube search embed
+      const embedUrl = `https://www.youtube.com/embed?listType=search&list=${encoded}&autoplay=1&playsinline=1`
+      const url = `https://www.youtube.com/results?search_query=${encoded}`
+      setResult({ ok: true, embedUrl, url, title: query })
+    } catch (e: unknown) {
       setResult(null)
-      setError(j.error || 'search failed')
+      setError(e instanceof Error ? e.message : 'search failed')
+    } finally {
+      setSearching(false)
     }
-    setSearching(false)
   }
 
   const stats = useMemo(() => {
@@ -99,11 +101,11 @@ export default function MusicPage() {
 
           {result && (
             <div style={{ marginTop: 10 }}>
-              <div style={{ marginBottom: 6, fontSize: 12, opacity: 0.85 }}>{result.title} · {result.channel}</div>
+              <div style={{ marginBottom: 6, fontSize: 12, opacity: 0.85 }}>{result.title}</div>
               <iframe
-                key={result.videoId}
+                key={result.embedUrl}
                 title="music-player"
-                src={`https://www.youtube.com/embed/${result.videoId}?autoplay=1&playsinline=1`}
+                src={result.embedUrl}
                 style={{ width: '100%', height: 320, border: 0, borderRadius: 10, background: '#000' }}
                 allow="autoplay; encrypted-media"
                 allowFullScreen
