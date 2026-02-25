@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import fs from 'node:fs'
 import path from 'node:path'
+import { MUSIC_LISTS } from '../_lists'
 
 export const runtime = 'nodejs'
-
-const LISTS_DIR = process.env.MUSIC_SCAN_LISTS_DIR || `${process.cwd()}/public/music-lists`
 
 function parseLines(text: string) {
   return text
@@ -29,10 +27,11 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const name = path.basename(String(body?.name || ''))
-    const full = path.join(LISTS_DIR, name)
-    const text = fs.readFileSync(full, 'utf8')
+    const key = path.basename(name)
+    const text = MUSIC_LISTS[key]
+    if (!text) return NextResponse.json({ ok: false, error: `list not found: ${key}` }, { status: 404 })
     const entries = parseLines(text)
-    return NextResponse.json({ ok: true, name, entries, text, count: entries.length })
+    return NextResponse.json({ ok: true, name: key, entries, text, count: entries.length })
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'failed to load list'
     return NextResponse.json({ ok: false, error: message }, { status: 500 })
