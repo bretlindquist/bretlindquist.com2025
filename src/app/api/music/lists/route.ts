@@ -3,7 +3,7 @@ import fs from 'node:fs'
 
 export const runtime = 'nodejs'
 
-const LISTS_DIR = process.env.MUSIC_SCAN_LISTS_DIR || '/Users/bretlindquist/git/youtube-top100-2025-playlist/data/txt'
+const LISTS_DIR = process.env.MUSIC_SCAN_LISTS_DIR || `${process.cwd()}/data/music-lists`
 
 export async function GET() {
   try {
