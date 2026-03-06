@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 type Entry = {
   index: number
@@ -37,6 +37,7 @@ type Decision = 'keep' | 'skip'
 type DecisionMap = Record<number, Decision>
 type ListFilter = 'pending' | 'all' | 'keep' | 'skip'
 type HistoryItem = { entryIndex: number; previous: Decision | null; next: Decision | null }
+type StoredListState = { idx?: number; decisions?: Record<string, Decision>; listFilter?: ListFilter }
 
 const LAST_FILE_KEY = 'music-scan:last-file'
 
@@ -54,6 +55,22 @@ function confidenceLabel(confidence: SearchResult['confidence']) {
   return 'Check match'
 }
 
+function isListFilter(value: unknown): value is ListFilter {
+  return value === 'pending' || value === 'all' || value === 'keep' || value === 'skip'
+}
+
+function findNextPendingIndex(entries: Entry[], decisions: DecisionMap, startIdx: number) {
+  for (let index = startIdx + 1; index < entries.length; index += 1) {
+    if (!(entries[index].index in decisions)) return index
+  }
+
+  for (let index = 0; index < startIdx; index += 1) {
+    if (!(entries[index].index in decisions)) return index
+  }
+
+  return clamp(startIdx, 0, Math.max(entries.length - 1, 0))
+}
+
 export default function MusicPage() {
   const [files, setFiles] = useState<string[]>([])
   const [selectedFile, setSelectedFile] = useState('')
@@ -67,10 +84,18 @@ export default function MusicPage() {
   const [decisions, setDecisions] = useState<DecisionMap>({})
   const [history, setHistory] = useState<HistoryItem[]>([])
   const [listFilter, setListFilter] = useState<ListFilter>('pending')
+  const autoPreviewIndexRef = useRef<number | null>(null)
+  const currentIndexRef = useRef<number | null>(null)
+  const inFlightSearchesRef = useRef<Map<number, Promise<SearchResult | null>>>(new Map())
+  const prewarmedIndexRef = useRef<number | null>(null)
 
   const current = entries[idx] || null
   const currentDecision = current ? decisions[current.index] ?? null : null
   const currentCache = current ? resultCache[current.index] ?? null : null
+
+  useEffect(() => {
+    currentIndexRef.current = current?.index ?? null
+  }, [current])
 
   useEffect(() => {
     ;(async () => {
@@ -103,6 +128,7 @@ export default function MusicPage() {
   useEffect(() => {
     if (!selectedFile) return
     window.localStorage.setItem(LAST_FILE_KEY, selectedFile)
+    prewarmedIndexRef.current = null
   }, [selectedFile])
 
   useEffect(() => {
@@ -130,11 +156,13 @@ export default function MusicPage() {
       const storedState = window.localStorage.getItem(storageKey(selectedFile))
       let restoredDecisions: DecisionMap = {}
       let restoredIdx = 0
+      let restoredFilter: ListFilter = 'pending'
 
       if (storedState) {
         try {
-          const parsed = JSON.parse(storedState) as { idx?: number; decisions?: Record<string, Decision> }
+          const parsed = JSON.parse(storedState) as StoredListState
           restoredIdx = typeof parsed.idx === 'number' ? parsed.idx : 0
+          restoredFilter = isListFilter(parsed.listFilter) ? parsed.listFilter : 'pending'
 
           restoredDecisions = Object.fromEntries(
             Object.entries(parsed.decisions || {}).filter(([entryIndex, decision]) => {
@@ -152,15 +180,15 @@ export default function MusicPage() {
       setHistory([])
       setResult(null)
       setResultCache({})
-      setListFilter('pending')
+      setListFilter(restoredFilter)
       setLoadingEntries(false)
     })()
   }, [selectedFile])
 
   useEffect(() => {
     if (!selectedFile || !entries.length) return
-    window.localStorage.setItem(storageKey(selectedFile), JSON.stringify({ idx, decisions }))
-  }, [selectedFile, entries.length, idx, decisions])
+    window.localStorage.setItem(storageKey(selectedFile), JSON.stringify({ idx, decisions, listFilter }))
+  }, [selectedFile, entries.length, idx, decisions, listFilter])
 
   useEffect(() => {
     if (!current) {
@@ -195,42 +223,83 @@ export default function MusicPage() {
       .slice(0, 4)
   }, [decisions, entries, idx])
 
+  const recommendationEntries = useMemo(() => {
+    return [...pendingEntries]
+      .sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity))
+      .slice(0, 3)
+  }, [pendingEntries])
+
   const alternateCandidates = useMemo(() => {
     return (result?.candidates || []).filter((candidate) => candidate.videoId !== result?.videoId)
   }, [result])
 
-  const search = useCallback(async (entry?: Entry, force = false) => {
+  const search = useCallback(async (
+    entry?: Entry,
+    options?: { force?: boolean; background?: boolean; activate?: boolean },
+  ) => {
     const row = entry || current
-    if (!row) return
+    if (!row) return null
+
+    const force = options?.force ?? false
+    const background = options?.background ?? false
+    const activate = options?.activate ?? !background
 
     if (!force && resultCache[row.index]) {
-      setResult(resultCache[row.index])
+      if (activate && currentIndexRef.current === row.index) {
+        setResult(resultCache[row.index])
+        setError(null)
+      }
+
+      return resultCache[row.index]
+    }
+
+    if (!background && currentIndexRef.current === row.index) {
+      setSearching(true)
       setError(null)
-      return
     }
 
-    setSearching(true)
-    setError(null)
+    const existingRequest = inFlightSearchesRef.current.get(row.index)
+    if (existingRequest) return existingRequest
 
-    try {
-      const response = await fetch('/api/music/search', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ artist: row.artist, album: row.album, query: row.query }),
-      })
+    const request = (async () => {
+      try {
+        const response = await fetch('/api/music/search', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ artist: row.artist, album: row.album, query: row.query }),
+        })
 
-      const json = await response.json()
-      if (!json.ok) throw new Error(json.error || 'search failed')
+        const json = await response.json()
+        if (!json.ok) throw new Error(json.error || 'search failed')
 
-      setResult(json)
-      setResultCache((cache) => ({ ...cache, [row.index]: json }))
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'search failed'
-      setResult(null)
-      setError(message)
-    } finally {
-      setSearching(false)
-    }
+        setResultCache((cache) => ({ ...cache, [row.index]: json }))
+
+        if (activate && currentIndexRef.current === row.index) {
+          setResult(json)
+          setError(null)
+        }
+
+        return json as SearchResult
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : 'search failed'
+
+        if (activate && currentIndexRef.current === row.index) {
+          setResult(null)
+          setError(message)
+        }
+
+        return null
+      } finally {
+        inFlightSearchesRef.current.delete(row.index)
+
+        if (!background && currentIndexRef.current === row.index) {
+          setSearching(false)
+        }
+      }
+    })()
+
+    inFlightSearchesRef.current.set(row.index, request)
+    return await request
   }, [current, resultCache])
 
   const chooseCandidate = useCallback((candidate: SearchCandidate) => {
@@ -249,27 +318,28 @@ export default function MusicPage() {
     setResultCache((cache) => ({ ...cache, [current.index]: nextResult }))
   }, [current, result])
 
-  const applyDecision = useCallback((decision: Decision) => {
+  const applyDecision = useCallback((decision: Decision, options?: { autoPreviewNext?: boolean }) => {
     if (!current) return
 
     const previous = decisions[current.index] ?? null
     const next = previous === decision ? null : decision
+    const updatedDecisions = { ...decisions }
 
-    setDecisions((existing) => {
-      const updated = { ...existing }
+    if (next) updatedDecisions[current.index] = next
+    else delete updatedDecisions[current.index]
 
-      if (next) updated[current.index] = next
-      else delete updated[current.index]
-
-      return updated
-    })
+    setDecisions(updatedDecisions)
 
     setHistory((existing) => [...existing, { entryIndex: current.index, previous, next }])
 
-    if (idx < entries.length - 1) {
-      setIdx((currentIdx) => clamp(currentIdx + 1, 0, entries.length - 1))
+    const nextIdx = findNextPendingIndex(entries, updatedDecisions, idx)
+    const nextEntry = entries[nextIdx] || null
+
+    if (nextEntry) {
+      setIdx(nextIdx)
+      autoPreviewIndexRef.current = options?.autoPreviewNext ? nextEntry.index : null
     }
-  }, [current, decisions, entries.length, idx])
+  }, [current, decisions, entries, idx])
 
   const undoLast = useCallback(() => {
     const last = history[history.length - 1]
@@ -301,7 +371,7 @@ export default function MusicPage() {
   }, [applyDecision])
 
   const skipCurrent = useCallback(() => {
-    applyDecision('skip')
+    applyDecision('skip', { autoPreviewNext: true })
   }, [applyDecision])
 
   const undoShortcut = useCallback(() => {
@@ -361,23 +431,43 @@ export default function MusicPage() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [keepCurrent, moveSelection, openCurrentResult, previewCurrent, skipCurrent, undoShortcut])
 
+  useEffect(() => {
+    if (!current || autoPreviewIndexRef.current !== current.index) return
+
+    autoPreviewIndexRef.current = null
+    void search(current, { activate: true })
+  }, [current, search])
+
+  useEffect(() => {
+    const nextEntry = entries
+      .slice(idx + 1)
+      .find((entry) => !(entry.index in decisions) && !resultCache[entry.index])
+
+    if (!nextEntry) return
+    if (prewarmedIndexRef.current === nextEntry.index) return
+
+    prewarmedIndexRef.current = nextEntry.index
+    void search(nextEntry, { background: true, activate: false })
+  }, [decisions, entries, idx, resultCache, search])
+
   return (
     <main className="music-page">
       <div className="music-backdrop" />
 
       <div className="music-shell">
         <header className="masthead">
-          <div>
+          <div className="masthead-copy">
             <p className="eyebrow">Review workstation</p>
             <h1>Music Scan Deck</h1>
             <p className="lede">
-              Scan ranked lists, preview the best available YouTube match, and build a shortlist without losing your place.
+              Move through album lists quickly, verify the strongest match, and keep only what deserves another listen.
             </p>
           </div>
 
           <div className="masthead-meta">
-            <span className="meta-chip">Shortcuts: Enter preview, F keep, X skip, Z undo</span>
-            <span className="meta-chip subtle">State is remembered per list on this browser</span>
+            <span className="meta-chip accent">{selectedFile ? selectedFile.replace(/\.txt$/i, '') : 'No list'} · {pendingEntries.length} pending</span>
+            <span className="meta-chip">Enter preview · F keep · X skip · Z undo</span>
+            <span className="meta-chip subtle">Remembers per-list state</span>
           </div>
         </header>
 
@@ -527,6 +617,12 @@ export default function MusicPage() {
                       ? 'Select a record and press Preview Match, or hit Enter to fetch the strongest candidate.'
                       : 'Choose a list to begin.'}
                   </p>
+                  {current ? (
+                    <div className="preview-prompt">
+                      <span>Current focus</span>
+                      <strong>{current.artist} · {current.album}</strong>
+                    </div>
+                  ) : null}
                 </div>
               )}
 
@@ -553,7 +649,24 @@ export default function MusicPage() {
                   ))}
                 </div>
               ) : (
-                <p className="side-copy">Use Keep to build a fast shortlist while you scan.</p>
+                <div className="smart-empty">
+                  <p className="side-copy">Use Keep to build a fast shortlist while you scan.</p>
+                  {recommendationEntries.length ? (
+                    <div className="smart-stack">
+                      <p className="smart-label">Best unresolved scores</p>
+                      {recommendationEntries.map((entry) => (
+                        <button
+                          key={entry.index}
+                          className="smart-item"
+                          onClick={() => setIdx(entries.findIndex((candidate) => candidate.index === entry.index))}
+                        >
+                          <span>{entry.artist}</span>
+                          <small>{entry.album}</small>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
               )}
             </div>
 
@@ -653,7 +766,8 @@ export default function MusicPage() {
                     </div>
 
                     <div className="queue-badges">
-                      {entryDecision ? <span className={`row-pill ${entryDecision}`}>{entryDecision}</span> : <span className="row-pill pending">pending</span>}
+                      {entryDecision ? <span className={`row-pill ${entryDecision}`}>{entryDecision}</span> : null}
+                      {hasCachedMatch ? <span className="row-pill ready">ready</span> : null}
                       {isActive ? <span className="row-pill active">current</span> : null}
                     </div>
                   </button>
@@ -689,9 +803,10 @@ export default function MusicPage() {
           min-height: 100vh;
           color: var(--text);
           background:
-            radial-gradient(circle at top left, rgba(94, 234, 212, 0.11), transparent 28%),
-            radial-gradient(circle at top right, rgba(247, 200, 115, 0.14), transparent 24%),
-            linear-gradient(180deg, #091223 0%, #060c18 100%);
+            radial-gradient(circle at 14% 10%, rgba(94, 234, 212, 0.18), transparent 0 30%),
+            radial-gradient(circle at 86% 8%, rgba(247, 200, 115, 0.19), transparent 0 26%),
+            radial-gradient(circle at 52% 120%, rgba(125, 211, 252, 0.12), transparent 0 40%),
+            linear-gradient(180deg, #0a1428 0%, #050b15 100%);
           padding: 32px 18px 80px;
         }
 
@@ -700,10 +815,10 @@ export default function MusicPage() {
           inset: 0;
           pointer-events: none;
           background:
-            radial-gradient(circle at 15% 15%, rgba(125, 211, 252, 0.14), transparent 0 22%),
-            radial-gradient(circle at 85% 10%, rgba(251, 191, 36, 0.12), transparent 0 20%),
-            radial-gradient(circle at 50% 100%, rgba(139, 92, 246, 0.1), transparent 0 30%);
-          filter: blur(12px);
+            radial-gradient(circle at 14% 16%, rgba(125, 211, 252, 0.2), transparent 0 24%),
+            radial-gradient(circle at 84% 10%, rgba(251, 191, 36, 0.18), transparent 0 22%),
+            radial-gradient(circle at 55% 100%, rgba(139, 92, 246, 0.14), transparent 0 34%);
+          filter: blur(16px);
         }
 
         .music-shell {
@@ -711,14 +826,20 @@ export default function MusicPage() {
           max-width: 1280px;
           margin: 0 auto;
           display: grid;
-          gap: 18px;
+          gap: 14px;
         }
 
         .masthead {
           display: flex;
           justify-content: space-between;
-          gap: 16px;
-          align-items: end;
+          gap: 14px;
+          align-items: start;
+          padding: 2px 4px 0;
+        }
+
+        .masthead-copy {
+          display: grid;
+          gap: 6px;
         }
 
         .eyebrow {
@@ -735,33 +856,39 @@ export default function MusicPage() {
 
         h1 {
           margin: 0;
-          font-size: clamp(2.35rem, 5vw, 4.6rem);
-          line-height: 0.95;
+          font-size: clamp(1.75rem, 3.6vw, 3.15rem);
+          line-height: 0.92;
           letter-spacing: -0.05em;
         }
 
         .lede {
-          max-width: 720px;
-          margin: 12px 0 0;
+          max-width: 54ch;
+          margin: 0;
           color: var(--muted);
-          font-size: 1rem;
-          line-height: 1.6;
+          font-size: 0.9rem;
+          line-height: 1.45;
         }
 
         .masthead-meta {
           display: flex;
-          gap: 10px;
+          gap: 8px;
           flex-wrap: wrap;
           justify-content: flex-end;
+          max-width: 520px;
         }
 
         .meta-chip {
           border: 1px solid var(--line);
           background: rgba(11, 20, 37, 0.72);
-          padding: 10px 12px;
+          padding: 7px 10px;
           border-radius: 999px;
           color: var(--text);
-          font-size: 12px;
+          font-size: 10px;
+        }
+
+        .meta-chip.accent {
+          border-color: rgba(125, 211, 252, 0.28);
+          background: rgba(19, 41, 68, 0.78);
         }
 
         .meta-chip.subtle {
@@ -770,13 +897,13 @@ export default function MusicPage() {
 
         .workspace-grid {
           display: grid;
-          grid-template-columns: minmax(0, 1.5fr) minmax(300px, 0.9fr);
-          gap: 18px;
+          grid-template-columns: minmax(0, 1.68fr) minmax(280px, 0.78fr);
+          gap: 14px;
         }
 
         .primary-stack {
           display: grid;
-          gap: 18px;
+          gap: 14px;
           align-content: start;
         }
 
@@ -795,12 +922,12 @@ export default function MusicPage() {
         .side-panel,
         .media-panel,
         .queue-panel {
-          padding: 22px;
+          padding: 16px;
         }
 
         .current-panel {
           display: grid;
-          gap: 22px;
+          gap: 14px;
         }
 
         .current-topline {
@@ -813,7 +940,7 @@ export default function MusicPage() {
         .list-picker {
           display: grid;
           gap: 8px;
-          width: min(220px, 100%);
+          width: min(208px, 100%);
         }
 
         .list-picker label {
@@ -829,30 +956,37 @@ export default function MusicPage() {
           border: 1px solid rgba(125, 211, 252, 0.22);
           background: rgba(10, 19, 34, 0.92);
           color: var(--text);
-          padding: 14px 16px;
-          font-size: 1.05rem;
+          padding: 13px 15px;
+          font-size: 1rem;
           outline: none;
+          transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+        }
+
+        select:hover,
+        select:focus-visible {
+          border-color: rgba(125, 211, 252, 0.4);
+          box-shadow: 0 0 0 3px rgba(125, 211, 252, 0.08);
         }
 
         .scan-stats {
           display: flex;
-          gap: 10px;
+          gap: 8px;
           flex-wrap: wrap;
           justify-content: flex-end;
         }
 
         .stat-block {
-          min-width: 110px;
-          padding: 12px 14px;
-          border-radius: 18px;
+          min-width: 88px;
+          padding: 9px 11px;
+          border-radius: 16px;
           border: 1px solid rgba(247, 200, 115, 0.14);
           background: rgba(10, 18, 31, 0.86);
         }
 
         .stat-block strong {
           display: block;
-          font-size: 1.2rem;
-          margin-top: 6px;
+          font-size: 1.08rem;
+          margin-top: 4px;
         }
 
         .stat-label {
@@ -864,13 +998,13 @@ export default function MusicPage() {
 
         .current-spotlight {
           display: grid;
-          grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
-          gap: 18px;
+          grid-template-columns: minmax(0, 1.34fr) minmax(238px, 0.66fr);
+          gap: 12px;
           align-items: stretch;
         }
 
         .current-copy {
-          padding: 22px;
+          padding: 16px;
           border-radius: 22px;
           background:
             linear-gradient(135deg, rgba(125, 211, 252, 0.16), rgba(139, 92, 246, 0.1)),
@@ -880,16 +1014,16 @@ export default function MusicPage() {
 
         h2 {
           margin: 0;
-          font-size: clamp(1.9rem, 4vw, 3.4rem);
+          font-size: clamp(1.55rem, 2.7vw, 2.45rem);
           line-height: 0.95;
           letter-spacing: -0.05em;
         }
 
         .album-title {
-          margin: 12px 0 0;
+          margin: 8px 0 0;
           color: #d7e4ff;
-          font-size: 1.08rem;
-          line-height: 1.55;
+          font-size: 0.96rem;
+          line-height: 1.4;
           max-width: 52ch;
         }
 
@@ -897,15 +1031,15 @@ export default function MusicPage() {
           display: flex;
           gap: 8px;
           flex-wrap: wrap;
-          margin-top: 18px;
+          margin-top: 14px;
         }
 
         .detail-chip {
           border-radius: 999px;
           border: 1px solid rgba(255, 255, 255, 0.08);
           background: rgba(6, 14, 27, 0.7);
-          padding: 8px 12px;
-          font-size: 12px;
+          padding: 7px 10px;
+          font-size: 11px;
           color: var(--text);
           text-transform: uppercase;
           letter-spacing: 0.08em;
@@ -927,8 +1061,8 @@ export default function MusicPage() {
 
         .scan-progress {
           display: grid;
-          gap: 12px;
-          padding: 20px;
+          gap: 10px;
+          padding: 16px;
           border-radius: 22px;
           background: rgba(8, 16, 29, 0.9);
           border: 1px solid rgba(255, 255, 255, 0.05);
@@ -938,7 +1072,7 @@ export default function MusicPage() {
           display: flex;
           justify-content: space-between;
           gap: 12px;
-          font-size: 13px;
+          font-size: 12px;
           color: var(--muted);
           text-transform: uppercase;
           letter-spacing: 0.14em;
@@ -966,31 +1100,42 @@ export default function MusicPage() {
         .progress-caption {
           margin: 0;
           color: var(--muted);
-          line-height: 1.6;
+          line-height: 1.5;
         }
 
         .action-row {
           display: flex;
-          gap: 10px;
+          gap: 8px;
           flex-wrap: wrap;
         }
 
         .action-btn {
           border: 0;
-          border-radius: 16px;
-          padding: 14px 18px;
+          border-radius: 14px;
+          padding: 11px 14px;
           cursor: pointer;
-          transition: transform 140ms ease, background 140ms ease, opacity 140ms ease;
+          transition: transform 140ms ease, background 140ms ease, opacity 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
           font: inherit;
         }
 
         .action-btn:hover:not(:disabled) {
           transform: translateY(-1px);
+          box-shadow: 0 10px 24px rgba(3, 8, 20, 0.24);
         }
 
         .action-btn:disabled {
           cursor: not-allowed;
           opacity: 0.45;
+        }
+
+        .action-btn:focus-visible,
+        .filter-chip:focus-visible,
+        .smart-item:focus-visible,
+        .shortlist-item:focus-visible,
+        .alternate-card:focus-visible,
+        .queue-row:focus-visible {
+          outline: none;
+          box-shadow: 0 0 0 3px rgba(125, 211, 252, 0.12);
         }
 
         .action-btn.primary {
@@ -1023,13 +1168,13 @@ export default function MusicPage() {
 
         .side-panel {
           display: grid;
-          gap: 18px;
+          gap: 12px;
           align-content: start;
         }
 
         .side-section {
-          padding: 18px;
-          border-radius: 22px;
+          padding: 14px;
+          border-radius: 20px;
           background: rgba(8, 15, 28, 0.78);
           border: 1px solid rgba(255, 255, 255, 0.05);
         }
@@ -1041,15 +1186,59 @@ export default function MusicPage() {
         }
 
         .side-copy {
-          margin: 12px 0 0;
+          margin: 10px 0 0;
           color: var(--muted);
-          line-height: 1.6;
+          line-height: 1.55;
+        }
+
+        .smart-empty {
+          display: grid;
+          gap: 12px;
+          margin-top: 10px;
+        }
+
+        .smart-stack {
+          display: grid;
+          gap: 8px;
+        }
+
+        .smart-label {
+          margin: 0;
+          color: var(--muted);
+          font-size: 11px;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+        }
+
+        .smart-item {
+          display: grid;
+          gap: 4px;
+          text-align: left;
+          border-radius: 14px;
+          border: 1px solid rgba(125, 211, 252, 0.14);
+          background: rgba(12, 23, 41, 0.82);
+          padding: 10px 12px;
+          color: var(--text);
+          cursor: pointer;
+          font: inherit;
+          transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+        }
+
+        .smart-item small {
+          color: var(--muted);
+        }
+
+        .smart-item:hover {
+          transform: translateY(-1px);
+          border-color: rgba(125, 211, 252, 0.24);
+          background: rgba(16, 30, 53, 0.9);
+          box-shadow: 0 12px 26px rgba(4, 9, 21, 0.2);
         }
 
         .shortlist {
           display: grid;
-          gap: 10px;
-          margin-top: 14px;
+          gap: 8px;
+          margin-top: 12px;
         }
 
         .shortlist-item {
@@ -1063,11 +1252,19 @@ export default function MusicPage() {
           color: var(--text);
           cursor: pointer;
           font: inherit;
+          transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
         }
 
         .shortlist-item.active {
           border-color: rgba(125, 211, 252, 0.28);
           background: rgba(14, 31, 54, 0.82);
+        }
+
+        .shortlist-item:hover {
+          transform: translateY(-1px);
+          border-color: rgba(109, 214, 168, 0.28);
+          background: rgba(17, 35, 33, 0.78);
+          box-shadow: 0 12px 26px rgba(4, 9, 21, 0.18);
         }
 
         .shortlist-item small {
@@ -1101,20 +1298,20 @@ export default function MusicPage() {
 
         .media-panel {
           display: grid;
-          gap: 16px;
+          gap: 8px;
         }
 
         .panel-head {
           display: flex;
           justify-content: space-between;
-          gap: 16px;
+          gap: 12px;
           align-items: start;
         }
 
         .confidence-pill {
           border-radius: 999px;
-          padding: 10px 12px;
-          font-size: 12px;
+          padding: 7px 10px;
+          font-size: 11px;
           text-transform: uppercase;
           letter-spacing: 0.12em;
           white-space: nowrap;
@@ -1141,30 +1338,37 @@ export default function MusicPage() {
         .match-meta {
           display: flex;
           justify-content: space-between;
-          gap: 14px;
+          gap: 12px;
           align-items: start;
-          padding: 14px 16px;
-          border-radius: 18px;
+          padding: 10px 12px;
+          border-radius: 16px;
           background: rgba(8, 15, 28, 0.84);
         }
 
+        .match-meta strong {
+          display: block;
+          line-height: 1.35;
+        }
+
         .match-meta p {
-          margin: 8px 0 0;
+          margin: 4px 0 0;
           color: var(--muted);
+          font-size: 0.92rem;
         }
 
         .candidate-score {
           color: var(--muted);
-          font-size: 12px;
+          font-size: 11px;
           text-transform: uppercase;
           letter-spacing: 0.12em;
         }
 
         .warning-banner,
         .error-banner {
-          border-radius: 18px;
-          padding: 14px 16px;
-          line-height: 1.55;
+          border-radius: 16px;
+          padding: 10px 12px;
+          line-height: 1.45;
+          font-size: 0.93rem;
         }
 
         .warning-banner {
@@ -1181,15 +1385,32 @@ export default function MusicPage() {
 
         .player-frame {
           width: 100%;
-          min-height: 520px;
+          min-height: 380px;
           border: 0;
           border-radius: 24px;
           background: #000;
         }
 
+        .preview-prompt {
+          display: grid;
+          gap: 6px;
+          margin-top: 14px;
+          padding: 12px 14px;
+          border-radius: 16px;
+          border: 1px solid rgba(125, 211, 252, 0.12);
+          background: rgba(11, 22, 39, 0.72);
+        }
+
+        .preview-prompt span {
+          color: var(--muted);
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.12em;
+        }
+
         .alternate-matches {
           display: grid;
-          gap: 12px;
+          gap: 10px;
         }
 
         .alternate-label {
@@ -1214,14 +1435,22 @@ export default function MusicPage() {
           background: rgba(8, 16, 29, 0.84);
           color: var(--text);
           border-radius: 18px;
-          padding: 14px;
+          padding: 12px;
           cursor: pointer;
           font: inherit;
+          transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
         }
 
         .alternate-card span {
           color: var(--muted);
           line-height: 1.45;
+        }
+
+        .alternate-card:hover {
+          transform: translateY(-1px);
+          border-color: rgba(125, 211, 252, 0.24);
+          background: rgba(12, 23, 41, 0.94);
+          box-shadow: 0 12px 26px rgba(4, 9, 21, 0.18);
         }
 
         .queue-head {
@@ -1244,6 +1473,7 @@ export default function MusicPage() {
           letter-spacing: 0.1em;
           font-size: 11px;
           cursor: pointer;
+          transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, color 140ms ease, box-shadow 140ms ease;
         }
 
         .filter-chip.active {
@@ -1252,11 +1482,19 @@ export default function MusicPage() {
           background: rgba(18, 34, 58, 0.9);
         }
 
+        .filter-chip:hover {
+          transform: translateY(-1px);
+          color: var(--text);
+          border-color: rgba(125, 211, 252, 0.18);
+          background: rgba(12, 23, 41, 0.88);
+          box-shadow: 0 10px 20px rgba(4, 9, 21, 0.16);
+        }
+
         .queue-list {
           display: grid;
-          gap: 10px;
-          margin-top: 18px;
-          max-height: 620px;
+          gap: 8px;
+          margin-top: 12px;
+          max-height: 600px;
           overflow: auto;
           padding-right: 4px;
         }
@@ -1264,23 +1502,24 @@ export default function MusicPage() {
         .queue-row {
           display: grid;
           grid-template-columns: auto minmax(0, 1fr) auto;
-          gap: 14px;
+          gap: 12px;
           align-items: center;
           width: 100%;
           text-align: left;
-          border-radius: 20px;
+          border-radius: 16px;
           border: 1px solid rgba(255, 255, 255, 0.06);
           background: rgba(8, 14, 25, 0.74);
           color: var(--text);
-          padding: 14px 16px;
+          padding: 12px 14px;
           cursor: pointer;
           font: inherit;
-          transition: border-color 140ms ease, transform 140ms ease, background 140ms ease;
+          transition: border-color 140ms ease, transform 140ms ease, background 140ms ease, box-shadow 140ms ease;
         }
 
         .queue-row:hover {
           transform: translateY(-1px);
-          border-color: rgba(125, 211, 252, 0.14);
+          border-color: rgba(125, 211, 252, 0.18);
+          box-shadow: 0 12px 24px rgba(4, 9, 21, 0.16);
         }
 
         .queue-row.active {
@@ -1311,16 +1550,16 @@ export default function MusicPage() {
         }
 
         .queue-title span {
-          color: var(--muted);
+          color: #b7c5e3;
         }
 
         .queue-meta {
           display: flex;
-          gap: 10px;
+          gap: 8px;
           flex-wrap: wrap;
-          margin-top: 6px;
+          margin-top: 5px;
           color: var(--muted);
-          font-size: 12px;
+          font-size: 11px;
           text-transform: uppercase;
           letter-spacing: 0.08em;
         }
@@ -1334,8 +1573,8 @@ export default function MusicPage() {
 
         .row-pill {
           border-radius: 999px;
-          padding: 8px 10px;
-          font-size: 11px;
+          padding: 7px 9px;
+          font-size: 10px;
           text-transform: uppercase;
           letter-spacing: 0.1em;
           border: 1px solid rgba(255, 255, 255, 0.06);
@@ -1353,14 +1592,16 @@ export default function MusicPage() {
           background: rgba(245, 159, 133, 0.1);
         }
 
-        .row-pill.pending {
-          color: var(--muted);
-        }
-
         .row-pill.active {
           color: var(--accent);
           border-color: rgba(125, 211, 252, 0.22);
           background: rgba(125, 211, 252, 0.1);
+        }
+
+        .row-pill.ready {
+          color: var(--warm);
+          border-color: rgba(247, 200, 115, 0.18);
+          background: rgba(247, 200, 115, 0.08);
         }
 
         .empty-state {
@@ -1379,7 +1620,7 @@ export default function MusicPage() {
         }
 
         .empty-state.media {
-          min-height: 360px;
+          min-height: 300px;
         }
 
         .empty-state p {
@@ -1407,7 +1648,7 @@ export default function MusicPage() {
           }
 
           .player-frame {
-            min-height: 420px;
+            min-height: 360px;
           }
         }
 
@@ -1445,7 +1686,7 @@ export default function MusicPage() {
           }
 
           .player-frame {
-            min-height: 280px;
+            min-height: 240px;
           }
 
           .queue-row {
