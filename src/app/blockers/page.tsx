@@ -255,11 +255,21 @@ export default function BlockersPage() {
                       onMouseLeave={clearLongPress}
                       onTouchStart={() => startLongPress(name, family.id)}
                       onTouchEnd={clearLongPress}
-                      className={`rounded-lg border border-zinc-700 bg-zinc-800 p-2 cursor-pointer ${isSelected ? "ring-2 ring-blue-400" : ""}`}
+                      onContextMenu={(e) => e.preventDefault()}
+                      className={`rounded-lg border border-zinc-700 bg-zinc-800 p-2 cursor-pointer select-none ${isSelected ? "ring-2 ring-blue-400" : ""}`}
+                      style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
                     >
                       <div className="flex flex-col gap-2">
-                        <div className="aspect-square rounded-md overflow-hidden bg-zinc-700/40">
-                          <img src={imageFor(name)} alt={name} className="w-full h-full object-cover" />
+                        <div className="aspect-square rounded-md overflow-hidden bg-zinc-700/40" style={{ WebkitTouchCallout: "none" }}>
+                          <img
+                            src={imageFor(name)}
+                            alt={name}
+                            draggable={false}
+                            onDragStart={(e) => e.preventDefault()}
+                            onContextMenu={(e) => e.preventDefault()}
+                            className="w-full h-full object-cover pointer-events-none"
+                            style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
+                          />
                         </div>
                         <p className="text-xs leading-tight line-clamp-2">{name}</p>
                       </div>
