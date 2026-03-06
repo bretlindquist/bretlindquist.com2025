@@ -21,16 +21,64 @@ const STORAGE_KEY = "blockers-board-v2";
 
 const familyById = Object.fromEntries(FAMILIES.map((f) => [f.id, f])) as Record<string, Family>;
 
+const imageMap: Record<string, string> = {
+  "Cloud (light)": "/blockers/tiles/cloud_light.png",
+  "Cloud (dense)": "/blockers/tiles/cloud_dense.png",
+  "Fog (low)": "/blockers/tiles/fog_low.png",
+  "Fog (thick)": "/blockers/tiles/fog_thick.png",
+  "Mist swirl": "/blockers/tiles/mist_swirl.png",
+  "Smoke pocket": "/blockers/tiles/smoke_pocket.png",
+  "Toxic haze": "/blockers/tiles/toxic_haze.png",
+  "Storm cloud (charged)": "/blockers/tiles/storm_cloud_charged.png",
+
+  "Brick wall": "/blockers/tiles/brick_wall.png",
+  "Cracked brick": "/blockers/tiles/brick_cracked.png",
+  "Concrete slab": "/blockers/tiles/concrete_slab.png",
+  "Cracked concrete": "/blockers/tiles/concrete_cracked.png",
+  "Stone block": "/blockers/tiles/stone_block.png",
+  "Cracked stone": "/blockers/tiles/stone_cracked.png",
+  "Marble tile": "/blockers/tiles/marble_tile.png",
+  "Fractured marble": "/blockers/tiles/marble_fractured.png",
+
+  "Ice thin": "/blockers/tiles/ice_thin.png",
+  "Ice medium": "/blockers/tiles/ice_medium.png",
+  "Ice thick": "/blockers/tiles/ice_thick.png",
+  "Frosted glass": "/blockers/tiles/frosted_glass.png",
+  "Cracked ice (stage 1)": "/blockers/tiles/ice_cracked_1.png",
+  "Cracked ice (stage 2)": "/blockers/tiles/ice_cracked_2.png",
+  "Shattering ice (clear state)": "/blockers/tiles/ice_shatter.png",
+
+  "Cage (light bars)": "/blockers/tiles/cage_light.png",
+  "Cage (heavy bars)": "/blockers/tiles/cage_heavy.png",
+  "Rusty cage": "/blockers/tiles/cage_rusty.png",
+  "Locked cage": "/blockers/tiles/cage_locked.png",
+  "Electrified cage": "/blockers/tiles/cage_electrified.png",
+  "Reinforced crate cage": "/blockers/tiles/cage_reinforced.png",
+
+  "Honey blob": "/blockers/tiles/honey_blob.png",
+  "Syrup pool": "/blockers/tiles/syrup_pool.png",
+  "Slime patch": "/blockers/tiles/slime_patch.png",
+  "Tar blob": "/blockers/tiles/tar_blob.png",
+  "Webbed tile": "/blockers/tiles/webbed_tile.png",
+  "Vines wrap": "/blockers/tiles/vines_wrap.png",
+
+  "Crystal shell": "/blockers/tiles/crystal_shell.png",
+  "Cracked crystal": "/blockers/tiles/crystal_cracked.png",
+  "Corrupted crystal": "/blockers/tiles/crystal_corrupted.png",
+  "Rune seal": "/blockers/tiles/rune_seal.png",
+  "Arcane barrier": "/blockers/tiles/arcane_barrier.png",
+  "Void bubble": "/blockers/tiles/void_bubble.png",
+
+  "Gear lock": "/blockers/tiles/gear_lock.png",
+  "Darkness pulse (intact veil)": "/blockers/tiles/darkness_pulse.png",
+  "Darkness hardened shell": "/blockers/tiles/darkness_hardened.png",
+  "Darkness cracked A (stage 1)": "/blockers/tiles/darkness_cracked_a.png",
+  "Darkness cracked B (stage 2)": "/blockers/tiles/darkness_cracked_b.png",
+  "Darkness shatter clear": "/blockers/tiles/darkness_cracked_b.png",
+};
+
 function imageFor(name: string): string {
-  const n = name.toLowerCase();
-  if (n.includes("cloud") || n.includes("mist")) return "/blockers/fx_cloud_light.png";
-  if (n.includes("fog") || n.includes("smoke") || n.includes("haze")) return "/blockers/fx_fog_thick.png";
-  if (n.includes("stone") || n.includes("concrete") || n.includes("marble") || n.includes("brick")) return "/blockers/fx_stone_block.png";
-  if (n.includes("cracked") && (n.includes("stone") || n.includes("concrete") || n.includes("brick") || n.includes("marble"))) return "/blockers/fx_stone_cracked.png";
-  if (n.includes("darkness")) return n.includes("cracked") ? "/blockers/fx_darkness_cracked_a.png" : "/blockers/fx_darkness_pulse.png";
-  if (n.includes("cage") || n.includes("lock")) return "/blockers/cage_blocker_overlay_512.png";
-  if (n.includes("ice") || n.includes("frost")) return "/blockers/fx_fog_low.png";
-  return "/blockers/fx_cloud_dense.png";
+  return imageMap[name] || "/blockers/tiles/stone_block.png";
 }
 
 function initialState(): BoardState {
