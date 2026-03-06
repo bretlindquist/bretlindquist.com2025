@@ -1,6 +1,6 @@
 import type { SearchResult } from '../../music/types.ts'
 
-const API_KEY = process.env.YOUTUBE_DATA_API_KEY || process.env.youtube_data_api_v3 || 'AIzaSyBPCyWUZbTC8nW5wv8cHHAkza_6qqPPY5Q'
+const API_KEY = process.env.YOUTUBE_DATA_API_KEY || process.env.youtube_data_api_v3 || ''
 
 type SearchItem = {
   id?: { videoId?: string }
@@ -96,6 +96,8 @@ function scoreCandidate(item: Candidate, artist: string, album: string) {
 }
 
 async function fetchSearch(query: string) {
+  if (!API_KEY) throw new Error('missing YOUTUBE_DATA_API_KEY')
+
   const params = new URLSearchParams({
     part: 'snippet',
     type: 'video',
@@ -169,7 +171,6 @@ export async function searchMusicMatch(args: { artist?: string; album?: string; 
   const baseQuery = [artist, album].filter(Boolean).join(' ').trim() || fallbackQuery
 
   if (!baseQuery) throw new Error('query required')
-  if (!API_KEY) throw new Error('missing YOUTUBE_DATA_API_KEY')
 
   const initialItems = await fetchSearch(baseQuery)
   let candidates = buildCandidates(initialItems)

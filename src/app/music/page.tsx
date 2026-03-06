@@ -1,7 +1,7 @@
 import { getCommunityLists } from '../api/music/_community'
 import { loadMusicEntries, pickMusicList } from '../api/music/_entries'
 import { getMusicListNames } from '../api/music/_lists'
-import { searchMusicMatch } from '../api/music/_search'
+import { getMusicMatch } from '../api/music/_matches'
 import MusicPageClient from './page.client'
 import type { ListOption, SearchResult } from './types'
 
@@ -28,19 +28,7 @@ export default async function MusicPage() {
   const selectedListId = pickMusicList(builtInFiles)
   const loaded = selectedListId ? await loadMusicEntries(selectedListId) : { entries: [], text: '', name: '' }
   const initialEntry = loaded.entries[0] || null
-  let initialResult: SearchResult | null = null
-
-  if (initialEntry) {
-    try {
-      initialResult = await searchMusicMatch({
-        artist: initialEntry.artist,
-        album: initialEntry.album,
-        query: initialEntry.query,
-      })
-    } catch {
-      initialResult = null
-    }
-  }
+  const initialResult: SearchResult | null = initialEntry ? await getMusicMatch(initialEntry) : null
 
   return (
     <MusicPageClient

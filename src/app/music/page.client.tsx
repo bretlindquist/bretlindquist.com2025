@@ -29,6 +29,12 @@ function confidenceLabel(confidence: SearchResult['confidence']) {
   return 'Check match'
 }
 
+function previewButtonLabel(searching: boolean, hasResult: boolean) {
+  if (searching) return 'Resolving match…'
+  if (hasResult) return 'Resolve Again'
+  return 'Resolve Preview'
+}
+
 function isListFilter(value: unknown): value is ListFilter {
   return value === 'pending' || value === 'all' || value === 'keep' || value === 'skip'
 }
@@ -74,6 +80,7 @@ export default function MusicPageClient({
   const [decisions, setDecisions] = useState<DecisionMap>({})
   const [history, setHistory] = useState<HistoryItem[]>([])
   const [listFilter, setListFilter] = useState<ListFilter>('pending')
+  const [isListPickerOpen, setIsListPickerOpen] = useState(false)
   const [isAddListOpen, setIsAddListOpen] = useState(false)
   const [newListName, setNewListName] = useState('')
   const [newListText, setNewListText] = useState('')
@@ -84,11 +91,14 @@ export default function MusicPageClient({
   const inFlightSearchesRef = useRef<Map<number, Promise<SearchResult | null>>>(new Map())
   const prewarmedIndexRef = useRef<number | null>(null)
   const initialSelectionHandledRef = useRef(false)
+  const listPickerRef = useRef<HTMLDivElement | null>(null)
 
   const current = entries[idx] || null
   const currentDecision = current ? decisions[current.index] ?? null : null
   const currentCache = current ? resultCache[current.index] ?? null : null
   const selectedList = lists.find((list) => list.id === selectedFile) || null
+  const builtInLists = useMemo(() => lists.filter((list) => list.source === 'built-in'), [lists])
+  const communityLists = useMemo(() => lists.filter((list) => list.source === 'community'), [lists])
 
   const restoreStoredState = useCallback((listId: string, nextEntries: Entry[]) => {
     const validIndices = new Set<number>(nextEntries.map((entry) => entry.index))
@@ -124,6 +134,28 @@ export default function MusicPageClient({
   }, [current])
 
   useEffect(() => {
+    if (!isListPickerOpen) return
+
+    const onPointerDown = (event: MouseEvent) => {
+      if (!listPickerRef.current?.contains(event.target as Node)) {
+        setIsListPickerOpen(false)
+      }
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsListPickerOpen(false)
+    }
+
+    window.addEventListener('mousedown', onPointerDown)
+    window.addEventListener('keydown', onKeyDown)
+
+    return () => {
+      window.removeEventListener('mousedown', onPointerDown)
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [isListPickerOpen])
+
+  useEffect(() => {
     ;(async () => {
       const response = await fetch('/api/music/lists')
       const json = await response.json()
@@ -152,6 +184,7 @@ export default function MusicPageClient({
     if (!selectedFile) return
     window.localStorage.setItem(LAST_FILE_KEY, selectedFile)
     prewarmedIndexRef.current = null
+    setIsListPickerOpen(false)
   }, [selectedFile])
 
   useEffect(() => {
@@ -163,6 +196,7 @@ export default function MusicPageClient({
       setIdx(restored.restoredIdx)
       setListFilter(restored.restoredFilter)
       setHistory([])
+      autoPreviewIndexRef.current = initialEntries[restored.restoredIdx]?.index ?? null
       initialSelectionHandledRef.current = true
       return
     }
@@ -188,14 +222,16 @@ export default function MusicPageClient({
 
       const nextEntries = Array.isArray(json.entries) ? json.entries : []
       const restored = restoreStoredState(selectedFile, nextEntries)
+      const nextInitialResult = json.initialResult && json.initialResult.ok ? json.initialResult as SearchResult : null
 
       setEntries(nextEntries)
       setIdx(restored.restoredIdx)
       setDecisions(restored.restoredDecisions)
       setHistory([])
-      setResult(null)
-      setResultCache({})
+      setResult(nextInitialResult)
+      setResultCache(nextEntries[0] && nextInitialResult ? { [nextEntries[0].index]: nextInitialResult } : {})
       setListFilter(restored.restoredFilter)
+      autoPreviewIndexRef.current = nextEntries[restored.restoredIdx]?.index ?? null
       setLoadingEntries(false)
     })()
   }, [initialEntries, initialSelectedListId, restoreStoredState, selectedFile])
@@ -277,7 +313,7 @@ export default function MusicPageClient({
 
   const search = useCallback(async (
     entry?: Entry,
-    options?: { force?: boolean; background?: boolean; activate?: boolean },
+    options?: { force?: boolean; background?: boolean; activate?: boolean; resolve?: boolean },
   ) => {
     const row = entry || current
     if (!row) return null
@@ -285,6 +321,7 @@ export default function MusicPageClient({
     const force = options?.force ?? false
     const background = options?.background ?? false
     const activate = options?.activate ?? !background
+    const resolve = options?.resolve ?? true
 
     if (!force && resultCache[row.index]) {
       if (activate && currentIndexRef.current === row.index) {
@@ -308,11 +345,22 @@ export default function MusicPageClient({
         const response = await fetch('/api/music/search', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ artist: row.artist, album: row.album, query: row.query }),
+          body: JSON.stringify({ artist: row.artist, album: row.album, query: row.query, resolve }),
         })
 
         const json = await response.json()
-        if (!json.ok) throw new Error(json.error || 'search failed')
+        if (!json.ok) {
+          if (response.status === 404 && !resolve) {
+            if (activate && currentIndexRef.current === row.index) {
+              setResult(null)
+              setError(null)
+            }
+
+            return null
+          }
+
+          throw new Error(json.error || 'search failed')
+        }
 
         setResultCache((cache) => ({ ...cache, [row.index]: json }))
 
@@ -358,6 +406,17 @@ export default function MusicPageClient({
 
     setResult(nextResult)
     setResultCache((cache) => ({ ...cache, [current.index]: nextResult }))
+
+    void fetch('/api/music/search', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        artist: current.artist,
+        album: current.album,
+        query: current.query,
+        selectedResult: nextResult,
+      }),
+    })
   }, [current, result])
 
   const applyDecision = useCallback((decision: Decision, options?: { autoPreviewNext?: boolean }) => {
@@ -405,8 +464,8 @@ export default function MusicPageClient({
   }, [entries.length])
 
   const previewCurrent = useCallback(() => {
-    void search()
-  }, [search])
+    void search(undefined, { force: !!result, resolve: true })
+  }, [result, search])
 
   const keepCurrent = useCallback(() => {
     applyDecision('keep')
@@ -524,7 +583,7 @@ export default function MusicPageClient({
     if (!current || autoPreviewIndexRef.current !== current.index) return
 
     autoPreviewIndexRef.current = null
-    void search(current, { activate: true })
+    void search(current, { activate: true, resolve: false })
   }, [current, search])
 
   useEffect(() => {
@@ -536,7 +595,7 @@ export default function MusicPageClient({
     if (prewarmedIndexRef.current === nextEntry.index) return
 
     prewarmedIndexRef.current = nextEntry.index
-    void search(nextEntry, { background: true, activate: false })
+    void search(nextEntry, { background: true, activate: false, resolve: false })
   }, [decisions, entries, idx, resultCache, search])
 
   return (
@@ -565,19 +624,72 @@ export default function MusicPageClient({
             <div className="panel current-panel">
               <div className="current-topline">
                 <div className="list-picker">
-                  <label htmlFor="music-list">List</label>
+                  <label htmlFor="music-list-trigger">List</label>
                   <div className="list-picker-row">
-                    <select
-                      id="music-list"
-                      value={selectedFile}
-                      onChange={(event) => setSelectedFile(event.target.value)}
-                    >
-                      {lists.map((list) => (
-                        <option key={list.id} value={list.id}>
-                          {list.source === 'community' ? `${list.label} (community)` : list.label}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="custom-picker" ref={listPickerRef}>
+                      <button
+                        id="music-list-trigger"
+                        type="button"
+                        className={`picker-trigger ${isListPickerOpen ? 'open' : ''}`}
+                        aria-haspopup="listbox"
+                        aria-expanded={isListPickerOpen}
+                        onClick={() => setIsListPickerOpen((open) => !open)}
+                      >
+                        <div className="picker-trigger-copy">
+                          <span className="picker-kicker">Current crate</span>
+                          <strong>{selectedList ? selectedList.label : 'Choose a list'}</strong>
+                          <span className="picker-meta">
+                            <span className={`picker-source ${selectedList?.source || 'built-in'}`}>
+                              {selectedList?.source === 'community' ? 'Community' : 'Built-in'}
+                            </span>
+                            <span>{entries.length || 0} items</span>
+                          </span>
+                        </div>
+                        <span className={`picker-chevron ${isListPickerOpen ? 'open' : ''}`}>▾</span>
+                      </button>
+
+                      {isListPickerOpen ? (
+                        <div className="picker-popover" role="listbox" aria-label="Music lists">
+                          {builtInLists.length ? (
+                            <div className="picker-group">
+                              <p className="picker-group-label">Built-in</p>
+                              <div className="picker-options">
+                                {builtInLists.map((list) => (
+                                  <button
+                                    key={list.id}
+                                    type="button"
+                                    className={`picker-option ${selectedFile === list.id ? 'active' : ''}`}
+                                    onClick={() => setSelectedFile(list.id)}
+                                  >
+                                    <span className="picker-option-title">{list.label}</span>
+                                    <span className="picker-option-tag built-in">Built-in</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {communityLists.length ? (
+                            <div className="picker-group">
+                              <p className="picker-group-label">Community</p>
+                              <div className="picker-options">
+                                {communityLists.map((list) => (
+                                  <button
+                                    key={list.id}
+                                    type="button"
+                                    className={`picker-option ${selectedFile === list.id ? 'active' : ''}`}
+                                    onClick={() => setSelectedFile(list.id)}
+                                  >
+                                    <span className="picker-option-title">{list.label}</span>
+                                    <span className="picker-option-tag community">Community</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
                     <button
                       type="button"
                       className="add-list-btn"
@@ -638,8 +750,8 @@ export default function MusicPageClient({
                   </div>
 
                   <div className="action-row">
-                    <button className="action-btn primary" onClick={() => void search()} disabled={searching || loadingEntries}>
-                      {searching ? 'Finding match…' : result ? 'Refresh Match' : 'Preview Match'}
+                    <button className="action-btn primary" onClick={previewCurrent} disabled={searching || loadingEntries}>
+                      {previewButtonLabel(searching, !!result)}
                     </button>
                     <button className={`action-btn decision-btn keep ${currentDecision === 'keep' ? 'active' : ''}`} onClick={() => applyDecision('keep')}>
                       {currentDecision === 'keep' ? 'Kept' : 'Keep'}
@@ -712,10 +824,10 @@ export default function MusicPageClient({
                 </>
               ) : (
                 <div className="empty-state media">
-                  <strong>{loadingEntries ? 'Loading your scan deck…' : 'No preview loaded yet'}</strong>
+                  <strong>{loadingEntries ? 'Loading your scan deck…' : 'No saved preview yet'}</strong>
                   <p>
                     {current
-                      ? 'Select a record and press Preview Match, or hit Enter to fetch the strongest candidate.'
+                      ? 'Saved matches appear automatically. Press Resolve Preview to spend one live YouTube search for this record.'
                       : 'Choose a list to begin.'}
                   </p>
                   {current ? (
@@ -1146,6 +1258,7 @@ export default function MusicPageClient({
           display: grid;
           grid-template-columns: minmax(0, 1fr) auto;
           gap: 8px;
+          align-items: start;
         }
 
         .list-picker label {
@@ -1155,22 +1268,181 @@ export default function MusicPageClient({
           letter-spacing: 0.14em;
         }
 
-        select {
-          width: 100%;
-          border-radius: 16px;
-          border: 1px solid rgba(125, 211, 252, 0.22);
-          background: rgba(10, 19, 34, 0.92);
-          color: var(--text);
-          padding: 13px 15px;
-          font-size: 1rem;
-          outline: none;
-          transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+        .custom-picker {
+          position: relative;
         }
 
-        select:hover,
-        select:focus-visible {
-          border-color: rgba(125, 211, 252, 0.4);
-          box-shadow: 0 0 0 3px rgba(125, 211, 252, 0.08);
+        .picker-trigger {
+          width: 100%;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto;
+          gap: 14px;
+          align-items: center;
+          padding: 16px 18px;
+          border-radius: 24px;
+          border: 1px solid rgba(125, 211, 252, 0.22);
+          background:
+            linear-gradient(135deg, rgba(20, 39, 67, 0.95), rgba(8, 17, 31, 0.94)),
+            rgba(11, 21, 39, 0.92);
+          color: var(--text);
+          cursor: pointer;
+          text-align: left;
+          font: inherit;
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.04),
+            0 10px 28px rgba(4, 9, 21, 0.18);
+          transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+        }
+
+        .picker-trigger:hover,
+        .picker-trigger.open {
+          transform: translateY(-1px);
+          border-color: rgba(125, 211, 252, 0.34);
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.05),
+            0 18px 38px rgba(4, 9, 21, 0.24);
+        }
+
+        .picker-trigger-copy {
+          display: grid;
+          gap: 4px;
+          min-width: 0;
+        }
+
+        .picker-kicker {
+          color: var(--accent);
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.14em;
+        }
+
+        .picker-trigger strong {
+          display: block;
+          font-size: 1.15rem;
+          line-height: 1.1;
+          letter-spacing: -0.03em;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .picker-meta {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          align-items: center;
+          color: var(--muted);
+          font-size: 12px;
+        }
+
+        .picker-source,
+        .picker-option-tag {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 999px;
+          padding: 4px 8px;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: rgba(7, 14, 27, 0.6);
+          font-size: 10px;
+          text-transform: uppercase;
+          letter-spacing: 0.12em;
+        }
+
+        .picker-source.community,
+        .picker-option-tag.community {
+          color: var(--warm);
+          border-color: rgba(247, 200, 115, 0.22);
+          background: rgba(247, 200, 115, 0.1);
+        }
+
+        .picker-source.built-in,
+        .picker-option-tag.built-in {
+          color: var(--accent);
+          border-color: rgba(125, 211, 252, 0.22);
+          background: rgba(125, 211, 252, 0.08);
+        }
+
+        .picker-chevron {
+          font-size: 1.2rem;
+          color: #d7e4ff;
+          transition: transform 160ms ease;
+        }
+
+        .picker-chevron.open {
+          transform: rotate(180deg);
+        }
+
+        .picker-popover {
+          position: absolute;
+          top: calc(100% + 10px);
+          left: 0;
+          right: 0;
+          z-index: 12;
+          display: grid;
+          gap: 12px;
+          padding: 14px;
+          border-radius: 24px;
+          border: 1px solid rgba(125, 211, 252, 0.16);
+          background:
+            linear-gradient(180deg, rgba(16, 29, 50, 0.98), rgba(8, 15, 28, 0.98)),
+            rgba(9, 17, 30, 0.96);
+          box-shadow: 0 28px 60px rgba(1, 5, 14, 0.46);
+          backdrop-filter: blur(14px);
+        }
+
+        .picker-group {
+          display: grid;
+          gap: 8px;
+        }
+
+        .picker-group-label {
+          margin: 0;
+          color: var(--muted);
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.14em;
+        }
+
+        .picker-options {
+          display: grid;
+          gap: 8px;
+          max-height: 280px;
+          overflow: auto;
+          padding-right: 2px;
+        }
+
+        .picker-option {
+          width: 100%;
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+          align-items: center;
+          padding: 12px 14px;
+          border-radius: 18px;
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          background: rgba(9, 18, 33, 0.86);
+          color: var(--text);
+          cursor: pointer;
+          text-align: left;
+          font: inherit;
+          transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+        }
+
+        .picker-option:hover,
+        .picker-option.active {
+          transform: translateY(-1px);
+          border-color: rgba(125, 211, 252, 0.22);
+          background: rgba(14, 28, 49, 0.95);
+          box-shadow: 0 12px 24px rgba(4, 9, 21, 0.16);
+        }
+
+        .picker-option-title {
+          display: block;
+          min-width: 0;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
         .add-list-btn,
