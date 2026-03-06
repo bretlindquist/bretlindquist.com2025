@@ -5,21 +5,126 @@ import { useMemo, useState } from "react";
 type Family = { id: string; label: string; color: string; icon: string; blockers: string[] };
 type BoardState = Record<string, string[]>;
 
+// Recalibrated into progression families (not broad categories)
 const FAMILIES: Family[] = [
-  { id: "atmospheric", label: "Atmospheric / Soft", color: "from-sky-500/30 to-indigo-500/30", icon: "☁️", blockers: ["Cloud (light)", "Cloud (dense)", "Fog (low)", "Fog (thick)", "Mist swirl", "Smoke pocket", "Toxic haze", "Storm cloud (charged)"] },
-  { id: "hard_surface", label: "Hard Surface", color: "from-orange-500/30 to-stone-600/30", icon: "🧱", blockers: ["Brick wall", "Cracked brick", "Concrete slab", "Cracked concrete", "Stone block", "Cracked stone", "Marble tile", "Fractured marble"] },
-  { id: "frozen", label: "Frozen", color: "from-cyan-400/30 to-blue-500/30", icon: "🧊", blockers: ["Ice thin", "Ice medium", "Ice thick", "Frosted glass", "Cracked ice (stage 1)", "Cracked ice (stage 2)", "Shattering ice (clear state)"] },
-  { id: "metal_cage", label: "Metal / Cage", color: "from-zinc-400/30 to-slate-600/30", icon: "⛓️", blockers: ["Cage (light bars)", "Cage (heavy bars)", "Rusty cage", "Locked cage", "Electrified cage", "Reinforced crate cage"] },
-  { id: "sticky", label: "Sticky / Goo", color: "from-lime-400/30 to-emerald-600/30", icon: "🟢", blockers: ["Honey blob", "Syrup pool", "Slime patch", "Tar blob", "Webbed tile", "Vines wrap"] },
-  { id: "magic", label: "Crystal / Magic", color: "from-violet-500/30 to-fuchsia-500/30", icon: "🔮", blockers: ["Crystal shell", "Cracked crystal", "Corrupted crystal", "Rune seal", "Arcane barrier", "Void bubble"] },
-  { id: "mechanical", label: "Mechanical", color: "from-gray-500/30 to-neutral-700/30", icon: "⚙️", blockers: ["Steel plate", "Bolted plate", "Gear lock", "Valve gate", "Laser grid", "Pressure gate"] },
-  { id: "terrain", label: "Terrain", color: "from-amber-500/30 to-green-700/30", icon: "🪨", blockers: ["Mud tile", "Sand pile", "Gravel chunk", "Moss rock", "Root knot", "Thorn cluster"] },
-  { id: "darkness", label: "Darkness Family", color: "from-purple-600/40 to-indigo-900/40", icon: "🌒", blockers: ["Darkness pulse (intact veil)", "Darkness hardened shell", "Darkness cracked A (stage 1)", "Darkness cracked B (stage 2)", "Darkness shatter clear"] },
+  {
+    id: "cloud_progression",
+    label: "Cloud / Fog Progression",
+    color: "from-sky-500/30 to-indigo-500/30",
+    icon: "☁️",
+    blockers: [
+      "Cloud (light)",
+      "Cloud (dense)",
+      "Mist swirl",
+      "Smoke pocket",
+      "Fog (low)",
+      "Fog (thick)",
+      "Storm cloud (charged)",
+      "Toxic haze",
+    ],
+  },
+  {
+    id: "ice_progression",
+    label: "Water / Ice Progression",
+    color: "from-cyan-400/30 to-blue-500/30",
+    icon: "🧊",
+    blockers: [
+      "Frosted glass",
+      "Ice thin",
+      "Ice medium",
+      "Ice thick",
+      "Cracked ice (stage 1)",
+      "Cracked ice (stage 2)",
+      "Shattering ice (clear state)",
+    ],
+  },
+  {
+    id: "stone_progression",
+    label: "Brick / Stone / Concrete",
+    color: "from-orange-500/30 to-stone-600/30",
+    icon: "🧱",
+    blockers: [
+      "Brick wall",
+      "Cracked brick",
+      "Concrete slab",
+      "Cracked concrete",
+      "Stone block",
+      "Cracked stone",
+      "Marble tile",
+      "Fractured marble",
+    ],
+  },
+  {
+    id: "cage_progression",
+    label: "Cage / Lock Progression",
+    color: "from-zinc-400/30 to-slate-700/30",
+    icon: "⛓️",
+    blockers: [
+      "Cage (light bars)",
+      "Cage (heavy bars)",
+      "Rusty cage",
+      "Locked cage",
+      "Electrified cage",
+      "Reinforced crate cage",
+      "Gear lock",
+      "Valve gate",
+      "Pressure gate",
+      "Steel plate",
+      "Bolted plate",
+      "Laser grid",
+    ],
+  },
+  {
+    id: "goo_progression",
+    label: "Goo / Sticky Growth",
+    color: "from-lime-400/30 to-emerald-700/30",
+    icon: "🟢",
+    blockers: [
+      "Honey blob",
+      "Syrup pool",
+      "Slime patch",
+      "Tar blob",
+      "Webbed tile",
+      "Vines wrap",
+    ],
+  },
+  {
+    id: "arcane_progression",
+    label: "Crystal / Arcane Progression",
+    color: "from-violet-500/30 to-fuchsia-600/30",
+    icon: "🔮",
+    blockers: [
+      "Crystal shell",
+      "Cracked crystal",
+      "Corrupted crystal",
+      "Rune seal",
+      "Arcane barrier",
+      "Void bubble",
+    ],
+  },
+  {
+    id: "darkness_progression",
+    label: "Darkness Progression",
+    color: "from-purple-600/40 to-indigo-900/40",
+    icon: "🌒",
+    blockers: [
+      "Darkness pulse (intact veil)",
+      "Darkness hardened shell",
+      "Darkness cracked A (stage 1)",
+      "Darkness cracked B (stage 2)",
+      "Darkness shatter clear",
+    ],
+  },
+  {
+    id: "terrain_progression",
+    label: "Terrain / Roots",
+    color: "from-amber-500/30 to-green-700/30",
+    icon: "🪨",
+    blockers: ["Mud tile", "Sand pile", "Gravel chunk", "Moss rock", "Root knot", "Thorn cluster"],
+  },
 ];
 
-const STORAGE_KEY = "blockers-board-v2";
-
-const familyById = Object.fromEntries(FAMILIES.map((f) => [f.id, f])) as Record<string, Family>;
+const STORAGE_KEY = "blockers-board-v3";
 
 const imageMap: Record<string, string> = {
   "Cloud (light)": "/blockers/tiles/cloud_light.png",
@@ -54,6 +159,7 @@ const imageMap: Record<string, string> = {
   "Locked cage": "/blockers/tiles/cage_locked.png",
   "Electrified cage": "/blockers/tiles/cage_electrified.png",
   "Reinforced crate cage": "/blockers/tiles/cage_reinforced.png",
+  "Gear lock": "/blockers/tiles/gear_lock.png",
 
   "Honey blob": "/blockers/tiles/honey_blob.png",
   "Syrup pool": "/blockers/tiles/syrup_pool.png",
@@ -69,7 +175,6 @@ const imageMap: Record<string, string> = {
   "Arcane barrier": "/blockers/tiles/arcane_barrier.png",
   "Void bubble": "/blockers/tiles/void_bubble.png",
 
-  "Gear lock": "/blockers/tiles/gear_lock.png",
   "Darkness pulse (intact veil)": "/blockers/tiles/darkness_pulse.png",
   "Darkness hardened shell": "/blockers/tiles/darkness_hardened.png",
   "Darkness cracked A (stage 1)": "/blockers/tiles/darkness_cracked_a.png",
@@ -101,6 +206,7 @@ export default function BlockersPage() {
   });
 
   const [dragging, setDragging] = useState<{ name: string; fromFamily: string } | null>(null);
+  const [touchTargetFamily, setTouchTargetFamily] = useState<string | null>(null);
 
   const total = useMemo(() => Object.values(board).reduce((sum, list) => sum + list.length, 0), [board]);
 
@@ -121,15 +227,23 @@ export default function BlockersPage() {
     if (!dragging) return;
     moveBlocker(dragging.name, dragging.fromFamily, toFamily);
     setDragging(null);
+    setTouchTargetFamily(null);
   };
 
-  const onTouchEndCard = (e: React.TouchEvent, name: string, fromFamily: string) => {
-    const touch = e.changedTouches[0];
-    const el = document.elementFromPoint(touch.clientX, touch.clientY) as HTMLElement | null;
+  const onTouchMoveCard = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    if (!t) return;
+    const el = document.elementFromPoint(t.clientX, t.clientY) as HTMLElement | null;
     const zone = el?.closest("[data-family-drop]") as HTMLElement | null;
-    const toFamily = zone?.dataset.familyDrop;
-    if (toFamily) moveBlocker(name, fromFamily, toFamily);
+    setTouchTargetFamily(zone?.dataset.familyDrop || null);
+  };
+
+  const onTouchEndCard = () => {
+    if (dragging && touchTargetFamily) {
+      moveBlocker(dragging.name, dragging.fromFamily, touchTargetFamily);
+    }
     setDragging(null);
+    setTouchTargetFamily(null);
   };
 
   const reset = () => persist(initialState());
@@ -139,8 +253,8 @@ export default function BlockersPage() {
       <div className="max-w-[1700px] mx-auto">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
           <div>
-            <h1 className="text-2xl font-bold">Blocker Family Board</h1>
-            <p className="text-sm text-zinc-400">/blockers · private board · touch-drag blockers across families</p>
+            <h1 className="text-2xl font-bold">Blocker Progression Board</h1>
+            <p className="text-sm text-zinc-400">/blockers · progression-first organization · touch drag between families</p>
           </div>
           <div className="flex gap-2">
             <button className="px-3 py-2 rounded bg-zinc-800 hover:bg-zinc-700 text-sm" onClick={() => navigator.clipboard.writeText(JSON.stringify(board, null, 2))}>Copy JSON</button>
@@ -157,7 +271,7 @@ export default function BlockersPage() {
               data-family-drop={family.id}
               onDragOver={(e) => e.preventDefault()}
               onDrop={() => onDropToFamily(family.id)}
-              className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-3"
+              className={`rounded-xl border p-3 ${touchTargetFamily === family.id ? "border-blue-400 bg-blue-950/20" : "border-zinc-800 bg-zinc-900/70"}`}
             >
               <header className={`rounded-lg bg-gradient-to-r ${family.color} p-2 mb-3`}>
                 <h2 className="font-semibold text-sm">{family.icon} {family.label}</h2>
@@ -172,8 +286,10 @@ export default function BlockersPage() {
                     onDragStart={() => setDragging({ name, fromFamily: family.id })}
                     onDragEnd={() => setDragging(null)}
                     onTouchStart={() => setDragging({ name, fromFamily: family.id })}
-                    onTouchEnd={(e) => onTouchEndCard(e, name, family.id)}
+                    onTouchMove={onTouchMoveCard}
+                    onTouchEnd={onTouchEndCard}
                     className={`rounded-lg border border-zinc-700 bg-zinc-800 p-2 ${dragging?.name === name ? "ring-2 ring-blue-400" : ""}`}
+                    style={{ touchAction: "none" }}
                   >
                     <div className="flex flex-col gap-2">
                       <div className="aspect-square rounded-md overflow-hidden bg-zinc-700/40">
