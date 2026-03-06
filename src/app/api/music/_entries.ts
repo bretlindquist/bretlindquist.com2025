@@ -1,6 +1,6 @@
 import path from 'node:path'
-import type { Entry } from '../../music/types'
-import { readMusicList } from './_lists'
+import type { Entry } from '../../music/types.ts'
+import { readMusicList } from './_lists.ts'
 
 type ParseResult =
   | { ok: true; entry: Entry }

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useRef, useState } from "react";
 
 type Family = { id: string; label: string; color: string; icon: string; blockers: string[] };
@@ -261,9 +262,11 @@ export default function BlockersPage() {
                     >
                       <div className="flex flex-col gap-2">
                         <div className="aspect-square rounded-md overflow-hidden bg-zinc-700/40" style={{ WebkitTouchCallout: "none" }}>
-                          <img
+                          <Image
                             src={imageFor(name)}
                             alt={name}
+                            width={256}
+                            height={256}
                             draggable={false}
                             onDragStart={(e) => e.preventDefault()}
                             onContextMenu={(e) => e.preventDefault()}

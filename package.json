@@ -2,11 +2,13 @@
   "name": "my-actor-website",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint src eslint.config.mjs --max-warnings=0",
+    "test": "node --test --experimental-strip-types src/**/*.test.ts"
   },
   "dependencies": {
     "@next/third-parties": "^15.5.12",

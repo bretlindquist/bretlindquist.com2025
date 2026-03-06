@@ -1,4 +1,4 @@
-import type { SearchResult } from '../../music/types'
+import type { SearchResult } from '../../music/types.ts'
 
 const API_KEY = process.env.YOUTUBE_DATA_API_KEY || process.env.youtube_data_api_v3 || 'AIzaSyBPCyWUZbTC8nW5wv8cHHAkza_6qqPPY5Q'
 
