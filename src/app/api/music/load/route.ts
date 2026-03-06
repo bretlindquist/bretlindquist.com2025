@@ -1,48 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
 import path from 'node:path'
-import { readMusicList } from '../_lists'
+import { getCommunityLists } from '../_community'
+import { loadMusicEntries, parseMusicList } from '../_entries'
 
 export const runtime = 'nodejs'
-
-function parseLines(text: string) {
-  return text
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .map((raw, i) => {
-      const numbered = raw.replace(/^\d+\.\s*/u, '')
-      const metaMatch = numbered.match(/\s+\((\d{4})\)(?:\s+\(([-\d.]+)\))?\s*$/u)
-      const stripped = metaMatch ? numbered.slice(0, metaMatch.index).trim() : numbered
-      const [artist, ...rest] = stripped.split(' - ')
-      const album = rest.join(' - ').trim() || stripped
-
-      return {
-        index: i + 1,
-        raw,
-        artist: artist?.trim() || '',
-        album,
-        query: `${artist?.trim() || ''} ${album}`.trim(),
-        year: metaMatch ? Number(metaMatch[1]) : null,
-        score: metaMatch?.[2] ? Number(metaMatch[2]) : null,
-      }
-    })
-}
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const name = path.basename(String(body?.name || ''))
-    const key = path.basename(name)
-    let text: string
+    const id = String(body?.id || body?.name || '').trim()
 
-    try {
-      text = await readMusicList(key)
-    } catch {
-      return NextResponse.json({ ok: false, error: `list not found: ${key}` }, { status: 404 })
+    if (id.startsWith('community:')) {
+      const communityId = path.basename(id.slice('community:'.length))
+      const communityLists = await getCommunityLists()
+      const match = communityLists.find((list) => list.id === communityId)
+
+      if (!match) {
+        return NextResponse.json({ ok: false, error: `list not found: ${communityId}` }, { status: 404 })
+      }
+
+      const entries = parseMusicList(match.text)
+      return NextResponse.json({ ok: true, name: id, entries, text: match.text, count: entries.length })
     }
 
-    const entries = parseLines(text)
-    return NextResponse.json({ ok: true, name: key, entries, text, count: entries.length })
+    const key = path.basename(id)
+    const loaded = await loadMusicEntries(key)
+    return NextResponse.json({ ok: true, name: loaded.name, entries: loaded.entries, text: loaded.text, count: loaded.entries.length })
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'failed to load list'
     return NextResponse.json({ ok: false, error: message }, { status: 500 })
