@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server'
-import { MUSIC_LIST_NAMES } from '../_lists'
+import { getMusicListNames } from '../_lists'
 
 export const runtime = 'nodejs'
 
 export async function GET() {
-  return NextResponse.json({ ok: true, files: MUSIC_LIST_NAMES })
+  try {
+    const files = await getMusicListNames()
+    return NextResponse.json({ ok: true, files })
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : 'failed to list music files'
+    return NextResponse.json({ ok: false, error: message }, { status: 500 })
+  }
 }
