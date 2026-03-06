@@ -3,7 +3,17 @@
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-type Family = { id: string; label: string; color: string; icon: string; blockers: string[]; summary: string; useCases: string[] };
+type Family = {
+  id: string;
+  label: string;
+  color: string;
+  icon: string;
+  blockers: string[];
+  summary: string;
+  useCases: string[];
+  avoidWhen: string;
+  examples: string[];
+};
 type BoardState = Record<string, string[]>;
 type Selected = { name: string; familyId: string } | null;
 
@@ -17,6 +27,8 @@ const BASE_FAMILIES: Family[] = [
     icon: "☁️",
     summary: "Use for visibility blockers, atmospheric cover, and soft spatial denial.",
     useCases: ["Obscures tiles", "Builds weather moods", "Can evolve into toxic or storm states"],
+    avoidWhen: "The blocker behaves like a hard shell, lock, or impact-driven break progression.",
+    examples: ["Cloud (dense)", "Fog (thick)", "Storm cloud (charged)"],
     blockers: ["Cloud (light)", "Cloud (dense)", "Mist swirl", "Smoke pocket", "Fog (low)", "Fog (thick)", "Storm cloud (charged)", "Toxic haze"],
   },
   {
@@ -26,6 +38,8 @@ const BASE_FAMILIES: Family[] = [
     icon: "🧊",
     summary: "Use for multi-hit frozen shells, fragile clears, and brittle glass-like blockers.",
     useCases: ["Single to multi-hit break states", "Transparent but obstructive surfaces", "Strong shatter payoff"],
+    avoidWhen: "The blocker spreads, oozes, or reads more like terrain clutter than a brittle shell.",
+    examples: ["Frosted glass", "Ice thick", "Shattering ice (clear state)"],
     blockers: ["Frosted glass", "Ice thin", "Ice medium", "Ice thick", "Cracked ice (stage 1)", "Cracked ice (stage 2)", "Shattering ice (clear state)"],
   },
   {
@@ -35,6 +49,8 @@ const BASE_FAMILIES: Family[] = [
     icon: "🧱",
     summary: "Use for grounded physical barriers with weight, durability, and structural damage states.",
     useCases: ["Hard-stop solids", "Urban or ruins themes", "Readable crack progression"],
+    avoidWhen: "The blocker is magical, gooey, or primarily about lock/unlock logic.",
+    examples: ["Brick wall", "Concrete slab", "Fractured marble"],
     blockers: ["Brick wall", "Cracked brick", "Concrete slab", "Cracked concrete", "Stone block", "Cracked stone", "Marble tile", "Fractured marble"],
   },
   {
@@ -44,6 +60,8 @@ const BASE_FAMILIES: Family[] = [
     icon: "⛓️",
     summary: "Use for mechanical gates, lock puzzles, and constrained-object blockers.",
     useCases: ["Keyed gates", "Multi-part unlock fantasies", "Industrial or prison themes"],
+    avoidWhen: "The blocker is mostly visual fog, organic spread, or terrain friction without a lock fantasy.",
+    examples: ["Locked cage", "Valve gate", "Laser grid"],
     blockers: ["Cage (light bars)", "Cage (heavy bars)", "Rusty cage", "Locked cage", "Electrified cage", "Reinforced crate cage", "Gear lock", "Valve gate", "Pressure gate", "Steel plate", "Bolted plate", "Laser grid"],
   },
   {
@@ -53,6 +71,8 @@ const BASE_FAMILIES: Family[] = [
     icon: "🟢",
     summary: "Use for spreadable hazards, sticky slows, and messy organic occupation.",
     useCases: ["Creeping board coverage", "Slow/adhesive fantasy", "Gross or playful texture set"],
+    avoidWhen: "The blocker should read as a discrete shell, cage, or polished magical seal.",
+    examples: ["Slime patch", "Tar blob", "Vines wrap"],
     blockers: ["Honey blob", "Syrup pool", "Slime patch", "Tar blob", "Webbed tile", "Vines wrap"],
   },
   {
@@ -62,6 +82,8 @@ const BASE_FAMILIES: Family[] = [
     icon: "🔮",
     summary: "Use for magical seals, crystalline prisons, and ritualized progression states.",
     useCases: ["Mystic gating", "Energy barrier themes", "Corruption or purification arcs"],
+    avoidWhen: "The blocker is better explained by physical materials or grounded terrain.",
+    examples: ["Crystal shell", "Rune seal", "Void bubble"],
     blockers: ["Crystal shell", "Cracked crystal", "Corrupted crystal", "Rune seal", "Arcane barrier", "Void bubble"],
   },
   {
@@ -71,6 +93,8 @@ const BASE_FAMILIES: Family[] = [
     icon: "🌒",
     summary: "Use for corruption layers, shadow curtains, and ominous multi-stage reveals.",
     useCases: ["Veil or concealment mechanics", "Corruption growth", "Big dramatic shatter clears"],
+    avoidWhen: "The blocker is bright arcane energy or a straightforward material shell without shadow identity.",
+    examples: ["Darkness pulse (intact veil)", "Darkness cracked B (stage 2)", "Darkness shatter clear"],
     blockers: ["Darkness pulse (intact veil)", "Darkness hardened shell", "Darkness cracked A (stage 1)", "Darkness cracked B (stage 2)", "Darkness shatter clear"],
   },
   {
@@ -80,6 +104,8 @@ const BASE_FAMILIES: Family[] = [
     icon: "🪨",
     summary: "Use for earthbound blockers, root entanglement, and natural board occupation.",
     useCases: ["Grounded environmental friction", "Nature-overgrowth themes", "Low-tech physical clutter"],
+    avoidWhen: "The blocker wants a lock fantasy, brittle shell, or fully mystical energy treatment.",
+    examples: ["Mud tile", "Moss rock", "Thorn cluster"],
     blockers: ["Mud tile", "Sand pile", "Gravel chunk", "Moss rock", "Root knot", "Thorn cluster"],
   },
 ];
@@ -151,6 +177,27 @@ function initialBoardState(): BoardState {
   return Object.fromEntries(BASE_FAMILIES.map((f) => [f.id, [...f.blockers]]));
 }
 
+function inferSuggestedFamilyIds(name: string, currentFamilyId: string): string[] {
+  const normalized = name.toLowerCase();
+  const checks: Array<[string, string[]]> = [
+    ["cloud_progression", ["cloud", "fog", "mist", "smoke", "haze", "storm"]],
+    ["ice_progression", ["ice", "frost", "glass", "frozen", "shatter"]],
+    ["stone_progression", ["brick", "concrete", "stone", "marble", "slab", "wall"]],
+    ["cage_progression", ["cage", "lock", "gate", "plate", "gear", "valve", "grid", "bolt"]],
+    ["goo_progression", ["honey", "syrup", "slime", "tar", "web", "vine", "goo"]],
+    ["arcane_progression", ["crystal", "rune", "arcane", "void", "seal", "barrier"]],
+    ["darkness_progression", ["dark", "shadow", "veil", "corrupt"]],
+    ["terrain_progression", ["mud", "sand", "gravel", "moss", "root", "thorn"]],
+  ];
+
+  const suggested = checks
+    .filter(([, keywords]) => keywords.some((keyword) => normalized.includes(keyword)))
+    .map(([familyId]) => familyId);
+
+  const ordered = [currentFamilyId, ...suggested.filter((familyId) => familyId !== currentFamilyId)];
+  return Array.from(new Set(ordered)).slice(0, 3);
+}
+
 export default function BlockersPage() {
   const [board, setBoard] = useState<BoardState>(() => {
     if (typeof window === "undefined") return initialBoardState();
@@ -195,6 +242,12 @@ export default function BlockersPage() {
 
   const currentModalFamily = longPressTarget ? renderFamilies.find((family) => family.id === longPressTarget.familyId) ?? null : null;
   const currentModalBaseFamily = longPressTarget ? familyMeta[longPressTarget.familyId] ?? null : null;
+  const suggestedFamilies = useMemo(() => {
+    if (!longPressTarget) return [];
+    return inferSuggestedFamilyIds(longPressTarget.name, longPressTarget.familyId)
+      .map((familyId) => renderFamilies.find((family) => family.id === familyId))
+      .filter((family): family is DynamicFamily => Boolean(family));
+  }, [longPressTarget, renderFamilies]);
 
   const total = useMemo(() => Object.values(board).reduce((sum, list) => sum + list.length, 0), [board]);
 
@@ -385,13 +438,13 @@ export default function BlockersPage() {
         >
           <div className="absolute inset-x-0 bottom-0 flex justify-center p-3 md:p-5">
             <div
-              className="w-full max-w-6xl rounded-[2rem] border border-zinc-700/80 bg-zinc-950/95 shadow-2xl shadow-black/40"
+              className="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-[2rem] border border-zinc-700/80 bg-zinc-950/95 shadow-2xl shadow-black/40"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="mx-auto mt-3 h-1.5 w-20 rounded-full bg-zinc-700/80" />
 
-              <div className="grid gap-6 p-5 md:grid-cols-[320px_minmax(0,1fr)] md:p-7">
-                <section className="space-y-4">
+              <div className="grid min-h-0 gap-6 overflow-y-auto overflow-x-hidden p-5 md:grid-cols-[300px_minmax(0,1fr)] md:p-7">
+                <section className="space-y-4 md:sticky md:top-0 md:self-start">
                   <div className="overflow-hidden rounded-[1.5rem] border border-zinc-800 bg-zinc-900/90">
                     <div className="aspect-square bg-zinc-900">
                       <Image
@@ -423,11 +476,11 @@ export default function BlockersPage() {
                       </div>
 
                       <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-3">
-                        <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Sheet use cases</p>
+                        <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Decision flow</p>
                         <ul className="mt-2 space-y-2 text-sm leading-6 text-zinc-300">
-                          <li>Move this blocker into an existing progression family.</li>
-                          <li>Create a new family when the blocker suggests a missing taxonomy.</li>
-                          <li>Cross-check the matrix below before inventing duplicate categories.</li>
+                          <li>1. Start with the suggested destinations if one clearly matches the mechanic.</li>
+                          <li>2. Use the full family grid when the fit is more about progression logic than theme words.</li>
+                          <li>3. Create a new family only if the matrix genuinely has a taxonomy gap.</li>
                         </ul>
                       </div>
                     </div>
@@ -435,24 +488,114 @@ export default function BlockersPage() {
                 </section>
 
                 <section className="space-y-5">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[11px] uppercase tracking-[0.22em] text-cyan-300">Reclassify blocker</p>
-                      <h2 className="mt-1 text-2xl font-semibold text-zinc-50">Bottom-sheet move matrix</h2>
-                      <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
-                        Use this sheet when a blocker fits a different mechanic family, should live in a custom track, or needs to be checked against the existing board taxonomy before you create something new.
-                      </p>
+                  <div className="sticky top-0 z-10 -mx-1 rounded-[1.5rem] border border-zinc-800 bg-zinc-950/95 px-4 py-4 backdrop-blur">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.22em] text-cyan-300">Reclassify blocker</p>
+                        <h2 className="mt-1 text-2xl font-semibold text-zinc-50">Bottom-sheet move matrix</h2>
+                        <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
+                          Move the blocker fast first, then use the matrix to confirm whether it belongs in an existing family or truly needs a new one.
+                        </p>
+                      </div>
+
+                      <button
+                        className="rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-zinc-300 transition hover:border-zinc-500 hover:text-white"
+                        onClick={() => {
+                          setLongPressTarget(null);
+                          setSelected(null);
+                        }}
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="rounded-[1.5rem] border border-zinc-800 bg-zinc-900/80 p-4">
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Quick routing</p>
+                        <p className="mt-1 text-sm text-zinc-400">Most blocker moves should resolve here before you ever need the full matrix.</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-[11px] text-zinc-300">
+                        <span className="rounded-full border border-zinc-700 bg-zinc-950 px-3 py-1.5">Use existing family if the mechanic matches</span>
+                        <span className="rounded-full border border-zinc-700 bg-zinc-950 px-3 py-1.5">Create new only for missing taxonomy</span>
+                      </div>
                     </div>
 
-                    <button
-                      className="rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-zinc-300 transition hover:border-zinc-500 hover:text-white"
-                      onClick={() => {
-                        setLongPressTarget(null);
-                        setSelected(null);
-                      }}
-                    >
-                      Close
-                    </button>
+                    <div className="grid gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(260px,0.85fr)]">
+                      <div className="space-y-3">
+                        <div className="grid gap-3 xl:grid-cols-3">
+                          {suggestedFamilies.map((family, index) => {
+                            const familyDetails = familyMeta[family.id];
+                            const isCurrent = family.id === longPressTarget.familyId;
+
+                            return (
+                              <button
+                                key={`suggested-${family.id}`}
+                                className={`rounded-[1.25rem] border px-4 py-4 text-left transition ${
+                                  isCurrent
+                                    ? "border-cyan-400/40 bg-cyan-500/12 shadow-lg shadow-cyan-950/20"
+                                    : "border-zinc-800 bg-zinc-950/70 hover:-translate-y-0.5 hover:border-zinc-600 hover:bg-zinc-900"
+                                }`}
+                                onClick={() => moveFromModal(family.id)}
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">
+                                      {isCurrent ? "Already assigned" : index === 0 ? "Best fit" : "Alternate fit"}
+                                    </p>
+                                    <div className="mt-2 flex items-center gap-2">
+                                      <span className="text-xl">{family.icon}</span>
+                                      <p className="font-medium text-zinc-100">{family.label}</p>
+                                    </div>
+                                  </div>
+                                  <span className="rounded-full border border-zinc-700 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-400">
+                                    {(board[family.id] || []).length} items
+                                  </span>
+                                </div>
+
+                                <p className="mt-3 text-sm leading-6 text-zinc-400">
+                                  {familyDetails?.summary ?? "Custom family for special-case blocker experiments."}
+                                </p>
+
+                                {familyDetails?.examples?.length ? (
+                                  <div className="mt-3 flex flex-wrap gap-2">
+                                    {familyDetails.examples.slice(0, 2).map((example) => (
+                                      <span key={`${family.id}-example-${example}`} className="rounded-full bg-zinc-900 px-2.5 py-1 text-[11px] text-zinc-300">
+                                        {example}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : null}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        <div className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4">
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Current assignment</p>
+                          <div className="mt-2 flex items-start gap-3">
+                            <span className="text-2xl">{currentModalFamily?.icon ?? "🗂️"}</span>
+                            <div>
+                              <p className="font-medium text-zinc-100">{currentModalFamily?.label ?? "Custom family"}</p>
+                              <p className="mt-1 text-sm leading-6 text-zinc-400">
+                                {currentModalBaseFamily?.summary ?? "This blocker currently lives in a custom bucket."}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4">
+                        <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Decision checklist</p>
+                        <ul className="mt-2 space-y-2 text-sm leading-6 text-zinc-300">
+                          <li>• Same mechanic, different skin: move into the closest existing family.</li>
+                          <li>• New break cadence or interaction model: consider a new family.</li>
+                          <li>• Theme-only disagreement: keep the taxonomy stable and reuse the family.</li>
+                          <li>• Still unsure: compare the “avoid when” notes in the matrix below.</li>
+                        </ul>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="rounded-[1.5rem] border border-zinc-800 bg-zinc-900/80 p-4">
@@ -464,7 +607,7 @@ export default function BlockersPage() {
                       <p className="text-xs text-zinc-500">{renderFamilies.length} available families</p>
                     </div>
 
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    <div className="grid gap-3 xl:grid-cols-2">
                       {renderFamilies.map((family) => {
                         const familyCount = (board[family.id] || []).length;
                         const isCurrent = family.id === longPressTarget.familyId;
@@ -490,7 +633,7 @@ export default function BlockersPage() {
                               </span>
                             </div>
 
-                            <p className="mt-3 text-sm leading-6 text-zinc-400">
+                            <p className="mt-3 min-h-[72px] text-sm leading-6 text-zinc-400">
                               {familyDetails?.summary ?? "Custom family for special-case blocker experiments."}
                             </p>
 
@@ -502,20 +645,29 @@ export default function BlockersPage() {
                               ))}
                             </div>
 
+                            {familyDetails?.avoidWhen ? (
+                              <p className="mt-3 text-xs leading-5 text-zinc-500">
+                                <span className="uppercase tracking-[0.18em] text-zinc-600">Avoid when</span>{" "}
+                                {familyDetails.avoidWhen}
+                              </p>
+                            ) : null}
+
                             {isCurrent ? (
                               <p className="mt-4 text-xs uppercase tracking-[0.18em] text-cyan-300">Current family</p>
-                            ) : null}
+                            ) : (
+                              <p className="mt-4 text-xs uppercase tracking-[0.18em] text-zinc-500">Move here</p>
+                            )}
                           </button>
                         );
                       })}
                     </div>
                   </div>
 
-                  <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+                  <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
                     <div className="rounded-[1.5rem] border border-zinc-800 bg-zinc-900/80 p-4">
                       <div className="mb-4">
                         <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Use-case matrix</p>
-                        <p className="mt-1 text-sm text-zinc-400">The current board covers atmospheric, physical, mechanical, sticky, magical, darkness, and terrain blocker roles.</p>
+                        <p className="mt-1 text-sm text-zinc-400">All current board families and the use cases they cover.</p>
                       </div>
 
                       <div className="grid gap-3 lg:grid-cols-2">
@@ -529,11 +681,28 @@ export default function BlockersPage() {
                               </div>
                             </div>
 
-                            <ul className="mt-3 space-y-2 text-sm leading-6 text-zinc-300">
+                            <div className="mt-3 flex flex-wrap gap-2">
                               {family.useCases.map((item) => (
-                                <li key={`${family.id}-use-${item}`}>• {item}</li>
+                                <span key={`${family.id}-use-${item}`} className="rounded-full border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-[11px] text-zinc-300">
+                                  {item}
+                                </span>
                               ))}
-                            </ul>
+                            </div>
+
+                            <div className="mt-4">
+                              <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Typical examples</p>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {family.examples.map((example) => (
+                                  <span key={`${family.id}-matrix-example-${example}`} className="rounded-full bg-zinc-900 px-2.5 py-1 text-[11px] text-zinc-300">
+                                    {example}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+
+                            <p className="mt-4 text-xs leading-5 text-zinc-500">
+                              <span className="uppercase tracking-[0.18em] text-zinc-600">Avoid when</span> {family.avoidWhen}
+                            </p>
                           </div>
                         ))}
                       </div>
@@ -551,6 +720,15 @@ export default function BlockersPage() {
                           <li>• It introduces a mechanic family not covered by the current matrix.</li>
                           <li>• It needs a distinct progression logic, not just a new material skin.</li>
                           <li>• It represents a recurring theme pack you expect to reuse.</li>
+                        </ul>
+                      </div>
+
+                      <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/70 p-3">
+                        <p className="text-sm font-medium text-zinc-100">Do not create one just because…</p>
+                        <ul className="mt-2 space-y-2 text-sm leading-6 text-zinc-300">
+                          <li>• The art style changed but the progression logic stayed the same.</li>
+                          <li>• The blocker is a variant of an existing shell, fog, lock, or terrain family.</li>
+                          <li>• You have not compared it against the use-case matrix yet.</li>
                         </ul>
                       </div>
 
