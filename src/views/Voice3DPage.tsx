@@ -1,11 +1,9 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect, Suspense } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX } from "lucide-react";
 import Link from "next/link";
-import { Canvas } from "@react-three/fiber";
-import Voice3DScene from "@/components/voice-3d/Voice3DScene";
 import { tracks } from "@/components/voice-cinematic/voiceData";
 
 const Voice3DPage = () => {
@@ -16,7 +14,6 @@ const Voice3DPage = () => {
   const [currentTime, setCurrentTime] = useState(0);
   const [volume, setVolume] = useState(0.8);
   const [entered, setEntered] = useState(false);
-  const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -77,7 +74,6 @@ const Voice3DPage = () => {
       analyser.connect(ctx.destination);
       audioContextRef.current = ctx;
       analyserRef.current = analyser;
-      setAnalyser(analyser);
     } catch (e) {
       console.warn("Web Audio API not available:", e);
     }
@@ -141,20 +137,62 @@ const Voice3DPage = () => {
 
   return (
     <div className="fixed inset-0 bg-[hsl(0,0%,1%)] text-foreground overflow-hidden">
-      {/* 3D Canvas Background */}
-      <Canvas
-        camera={{ position: [0, 0, 6], fov: 60 }}
-        className="absolute inset-0"
-        gl={{ antialias: true, alpha: true }}
-      >
-        <Suspense fallback={null}>
-          <Voice3DScene
-            analyser={analyser}
-            isPlaying={isPlaying}
-            mood={track.mood}
-          />
-        </Suspense>
-      </Canvas>
+      <div className="absolute inset-0">
+        <motion.div
+          className="absolute inset-0"
+          animate={{ opacity: [0.75, 0.95, 0.8] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          style={{
+            background: `
+              radial-gradient(circle at 20% 20%, ${track.mood.glow} 0%, transparent 35%),
+              radial-gradient(circle at 80% 18%, hsla(0,0%,100%,0.09) 0%, transparent 20%),
+              radial-gradient(circle at 50% 52%, hsla(210,100%,56%,0.12) 0%, transparent 28%),
+              linear-gradient(180deg, hsl(0,0%,2%) 0%, hsl(0,0%,1%) 100%)
+            `,
+          }}
+        />
+
+        <motion.div
+          className="absolute left-1/2 top-1/2 h-[46vw] w-[46vw] min-h-[280px] min-w-[280px] max-h-[620px] max-w-[620px] -translate-x-1/2 -translate-y-1/2 rounded-full"
+          animate={{
+            rotate: 360,
+            scale: isPlaying ? [1, 1.04, 1] : [0.98, 1.01, 0.98],
+          }}
+          transition={{
+            rotate: { duration: 40, repeat: Infinity, ease: "linear" },
+            scale: { duration: 6, repeat: Infinity, ease: "easeInOut" },
+          }}
+          style={{
+            background: `
+              radial-gradient(circle at 35% 35%, hsla(0,0%,100%,0.22) 0%, transparent 18%),
+              radial-gradient(circle at 50% 50%, ${track.mood.accent}22 0%, ${track.mood.accent}08 45%, transparent 70%),
+              linear-gradient(145deg, hsla(0,0%,100%,0.05), transparent 55%)
+            `,
+            boxShadow: `0 0 80px ${track.mood.glow}`,
+            border: `1px solid ${track.mood.accent}33`,
+          }}
+        />
+
+        <motion.div
+          className="absolute left-1/2 top-1/2 h-[60vw] w-[60vw] min-h-[360px] min-w-[360px] max-h-[880px] max-w-[880px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10"
+          animate={{ rotate: -360 }}
+          transition={{ duration: 80, repeat: Infinity, ease: "linear" }}
+          style={{
+            boxShadow: `inset 0 0 60px ${track.mood.glow}`,
+          }}
+        />
+
+        <motion.div
+          className="absolute inset-0 opacity-40"
+          animate={{ backgroundPosition: ["0% 0%", "100% 100%"] }}
+          transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
+          style={{
+            backgroundImage:
+              "radial-gradient(circle, hsla(0,0%,100%,0.8) 0 1px, transparent 1.5px)",
+            backgroundSize: "180px 180px",
+          }}
+        />
+      </div>
 
       {/* Overlay UI */}
       <div className="absolute inset-0 pointer-events-none">
