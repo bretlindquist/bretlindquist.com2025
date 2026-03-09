@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import VoiceHeroEntrance from "@/components/voice-cinematic/VoiceHeroEntrance";
@@ -123,6 +124,14 @@ const VoiceCinematicPage = () => {
             animate={{ opacity: 1 }}
             transition={{ duration: 1.2, ease: "easeOut" }}
           >
+            <div className="fixed top-6 right-6 z-50">
+              <Link
+                href="/voice-3d"
+                className="rounded-full border border-white/40 bg-white/5 px-4 py-2 text-xs font-body uppercase tracking-[0.35em] text-foreground transition hover:border-white hover:bg-white/10"
+              >
+                Voice 3D
+              </Link>
+            </div>
             <VoiceBoothPlayer
               tracks={tracks}
               currentTrack={currentTrack}
