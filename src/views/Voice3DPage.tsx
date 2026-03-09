@@ -1,12 +1,76 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect, Suspense } from "react";
+import {
+  Component,
+  type ErrorInfo,
+  type ReactNode,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX } from "lucide-react";
 import Link from "next/link";
 import { Canvas } from "@react-three/fiber";
 import Voice3DScene from "@/components/voice-3d/Voice3DScene";
 import { tracks } from "@/components/voice-cinematic/voiceData";
+
+const supportsWebGL = () => {
+  if (typeof document === "undefined") {
+    return false;
+  }
+
+  const canvas = document.createElement("canvas");
+  return Boolean(
+    canvas.getContext("webgl2") ||
+      canvas.getContext("webgl") ||
+      canvas.getContext("experimental-webgl")
+  );
+};
+
+function FallbackBackdrop({ accent }: { accent: string }) {
+  return (
+    <div
+      aria-hidden="true"
+      className="absolute inset-0"
+      style={{
+        background: `
+          radial-gradient(circle at 50% 42%, ${accent}26 0%, transparent 22%),
+          radial-gradient(circle at 50% 50%, ${accent}12 0%, transparent 34%),
+          radial-gradient(circle at 20% 18%, hsla(210, 100%, 70%, 0.16) 0%, transparent 20%),
+          radial-gradient(circle at 80% 72%, hsla(0, 0%, 100%, 0.08) 0%, transparent 18%),
+          linear-gradient(180deg, hsl(0,0%,2%) 0%, hsl(0,0%,0%) 100%)
+        `,
+      }}
+    />
+  );
+}
+
+class CanvasErrorBoundary extends Component<
+  { children: ReactNode; onError: () => void },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("Voice 3D canvas error", error, errorInfo);
+    this.props.onError();
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return null;
+    }
+
+    return this.props.children;
+  }
+}
 
 const Voice3DPage = () => {
   const [currentTrack, setCurrentTrack] = useState(0);
@@ -17,6 +81,10 @@ const Voice3DPage = () => {
   const [volume, setVolume] = useState(0.8);
   const [entered, setEntered] = useState(false);
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
+  const [playbackError, setPlaybackError] = useState<string | null>(null);
+  const [canvasStatus, setCanvasStatus] = useState<"ready" | "unsupported" | "error">(() =>
+    supportsWebGL() ? "ready" : "unsupported"
+  );
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -27,25 +95,46 @@ const Voice3DPage = () => {
     audio.crossOrigin = "anonymous";
     audio.preload = "metadata";
     audio.src = tracks[0].src;
+    audio.volume = 0.8;
     audioRef.current = audio;
 
-    audio.addEventListener("loadedmetadata", () => setDuration(audio.duration));
-    audio.addEventListener("timeupdate", () => {
+    const handleLoadedMetadata = () => setDuration(audio.duration);
+    const handleTimeUpdate = () => {
       setCurrentTime(audio.currentTime);
-      if (audio.duration) setProgress((audio.currentTime / audio.duration) * 100);
-    });
+      setDuration(audio.duration || 0);
+      if (audio.duration) {
+        setProgress((audio.currentTime / audio.duration) * 100);
+      }
+    };
     const handleEnded = () => {
       setCurrentTrack((previousTrack) => (previousTrack + 1) % tracks.length);
     };
 
+    audio.addEventListener("loadedmetadata", handleLoadedMetadata);
+    audio.addEventListener("timeupdate", handleTimeUpdate);
     audio.addEventListener("ended", handleEnded);
 
     return () => {
+      audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      audio.removeEventListener("timeupdate", handleTimeUpdate);
       audio.removeEventListener("ended", handleEnded);
       audio.pause();
       audio.src = "";
+      analyserRef.current = null;
+      setAnalyser(null);
+      const ctx = audioContextRef.current;
+      audioContextRef.current = null;
+      if (ctx) {
+        void ctx.close().catch(() => {});
+      }
     };
   }, []);
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume;
+    }
+  }, [volume]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -61,7 +150,11 @@ const Voice3DPage = () => {
       audio.src = nextSrc;
       audio.load();
       if (isPlaying) {
-        audio.play().catch(() => {});
+        audio.play().catch((error) => {
+          console.warn("Unable to continue playback for voice 3D track change", error);
+          setIsPlaying(false);
+          setPlaybackError("Playback paused. Tap play to continue.");
+        });
       }
     }
   }, [currentTrack, isPlaying]);
@@ -84,7 +177,7 @@ const Voice3DPage = () => {
   }, []);
 
   const togglePlay = useCallback(async () => {
-    if (!audioRef.current) return;
+    if (!audioRef.current) return false;
     setupAnalyser();
     if (audioContextRef.current?.state === "suspended") {
       await audioContextRef.current.resume();
@@ -92,9 +185,20 @@ const Voice3DPage = () => {
     if (isPlaying) {
       audioRef.current.pause();
       setIsPlaying(false);
-    } else {
+      setPlaybackError(null);
+      return true;
+    }
+
+    try {
       await audioRef.current.play();
       setIsPlaying(true);
+      setPlaybackError(null);
+      return true;
+    } catch (error) {
+      console.warn("Unable to start voice 3D playback", error);
+      setIsPlaying(false);
+      setPlaybackError("Tap to start audio again.");
+      return false;
     }
   }, [isPlaying, setupAnalyser]);
 
@@ -110,8 +214,15 @@ const Voice3DPage = () => {
         audioRef.current.load();
         audioRef.current
           .play()
-          .then(() => setIsPlaying(true))
-          .catch(() => {});
+          .then(() => {
+            setIsPlaying(true);
+            setPlaybackError(null);
+          })
+          .catch((error) => {
+            console.warn("Unable to switch tracks in voice 3D", error);
+            setIsPlaying(false);
+            setPlaybackError("Track switch needs another tap.");
+          });
       }
     },
     [setupAnalyser]
@@ -142,19 +253,28 @@ const Voice3DPage = () => {
   return (
     <div className="fixed inset-0 bg-[hsl(0,0%,1%)] text-foreground overflow-hidden">
       {/* 3D Canvas Background */}
-      <Canvas
-        camera={{ position: [0, 0, 6], fov: 60 }}
-        className="absolute inset-0"
-        gl={{ antialias: true, alpha: true }}
-      >
-        <Suspense fallback={null}>
-          <Voice3DScene
-            analyser={analyser}
-            isPlaying={isPlaying}
-            mood={track.mood}
-          />
-        </Suspense>
-      </Canvas>
+      <FallbackBackdrop accent={track.mood.accent} />
+      {canvasStatus === "ready" ? (
+        <CanvasErrorBoundary onError={() => setCanvasStatus("error")}>
+          <Canvas
+            camera={{ position: [0, 0, 6], fov: 60 }}
+            className="absolute inset-0"
+            dpr={[1, 1.75]}
+            gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
+            onCreated={({ gl }) => {
+              gl.setClearColor(0x000000, 0);
+            }}
+          >
+            <Suspense fallback={null}>
+              <Voice3DScene
+                analyser={analyser}
+                isPlaying={isPlaying}
+                mood={track.mood}
+              />
+            </Suspense>
+          </Canvas>
+        </CanvasErrorBoundary>
+      ) : null}
 
       {/* Overlay UI */}
       <div className="absolute inset-0 pointer-events-none">
@@ -174,14 +294,24 @@ const Voice3DPage = () => {
           </Link>
         </div>
 
+        {canvasStatus !== "ready" ? (
+          <div className="pointer-events-none absolute right-6 top-20 max-w-xs rounded-full border border-white/10 bg-black/30 px-4 py-2 text-right font-body text-[10px] uppercase tracking-[0.24em] text-muted-foreground/80 backdrop-blur-sm">
+            {canvasStatus === "unsupported"
+              ? "3D fallback active on this device"
+              : "3D scene recovered with fallback backdrop"}
+          </div>
+        ) : null}
+
         {/* Enter prompt (if not entered) */}
         <AnimatePresence>
           {!entered && (
             <motion.div
               className="absolute inset-0 flex flex-col items-center justify-center pointer-events-auto cursor-pointer z-20"
-              onClick={() => {
-                setEntered(true);
-                togglePlay();
+              onClick={async () => {
+                const started = await togglePlay();
+                if (started) {
+                  setEntered(true);
+                }
               }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.8 }}
@@ -206,7 +336,7 @@ const Voice3DPage = () => {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.6 }}
               >
-                Click to begin the experience
+                {playbackError ?? "Click to begin the experience"}
               </motion.p>
               <motion.div
                 className="mt-8 w-16 h-16 rounded-full border border-[hsla(210,100%,56%,0.4)] flex items-center justify-center"
@@ -365,6 +495,11 @@ const Voice3DPage = () => {
                 />
               </div>
             </div>
+            {playbackError ? (
+              <p className="pb-6 text-center font-body text-[10px] uppercase tracking-[0.24em] text-muted-foreground/70">
+                {playbackError}
+              </p>
+            ) : null}
           </motion.div>
         )}
       </div>
