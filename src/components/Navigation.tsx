@@ -4,7 +4,7 @@ import { Menu, X } from "lucide-react";
 
 const links = [
   { label: "Work", href: "#acting" },
-  { label: "Voice", href: "#voice" },
+  { label: "Voice", href: "/voice" },
   { label: "Credits", href: "#filmography" },
   { label: "About", href: "#about" },
   { label: "Contact", href: "#contact" },
