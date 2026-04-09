@@ -3,6 +3,7 @@ import "../src/index.css";
 import AppProviders from "@/components/app-providers";
 
 export const metadata: Metadata = {
+  applicationName: "Bret Lindquist",
   metadataBase: new URL("https://bretlindquist.com"),
   title: {
     default: "Bret Lindquist (홍보) | Actor, Voice Actor, and Stunt Performer in Korea",
@@ -50,8 +51,15 @@ export const metadata: Metadata = {
     images: ["/images/hero-headshot.webp"],
   },
   icons: {
-    icon: "/favicon.ico",
+    icon: [
+      { url: "/favicon-bl.ico?v=20260409-1", type: "image/x-icon" },
+      { url: "/favicon-32x32.png?v=20260409-1", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-16x16.png?v=20260409-1", sizes: "16x16", type: "image/png" },
+    ],
+    shortcut: ["/favicon-bl.ico?v=20260409-1"],
+    apple: [{ url: "/apple-touch-icon.png?v=20260409-1", sizes: "180x180", type: "image/png" }],
   },
+  manifest: "/site.webmanifest?v=20260409-1",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
