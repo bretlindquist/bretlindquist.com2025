@@ -3,6 +3,7 @@ import path from 'node:path'
 import { getCommunityLists } from '../_community'
 import { loadMusicEntries, parseMusicList } from '../_entries'
 import { getMusicMatch } from '../_matches'
+import { isLikelyUsableSearchResult } from '../_search'
 
 export const runtime = 'nodejs'
 
@@ -22,19 +23,23 @@ export async function POST(req: NextRequest) {
 
       const entries = parseMusicList(match.text)
       const initialResult = entries[0] ? await getMusicMatch(entries[0]) : null
-      return NextResponse.json({ ok: true, name: id, entries, text: match.text, count: entries.length, initialResult })
+      const safeInitialResult =
+        initialResult && initialResult.confidence !== 'low' && isLikelyUsableSearchResult(initialResult) ? initialResult : null
+      return NextResponse.json({ ok: true, name: id, entries, text: match.text, count: entries.length, initialResult: safeInitialResult })
     }
 
     const key = path.basename(id)
     const loaded = await loadMusicEntries(key)
     const initialResult = loaded.entries[0] ? await getMusicMatch(loaded.entries[0]) : null
+    const safeInitialResult =
+      initialResult && initialResult.confidence !== 'low' && isLikelyUsableSearchResult(initialResult) ? initialResult : null
     return NextResponse.json({
       ok: true,
       name: loaded.name,
       entries: loaded.entries,
       text: loaded.text,
       count: loaded.entries.length,
-      initialResult,
+      initialResult: safeInitialResult,
     })
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'failed to load list'

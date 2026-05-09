@@ -41,65 +41,58 @@ const HeroSection = () => {
 };
 
 const ActingSection = () => {
-  const [modalIsOpen1, setModalIsOpen1] = useState(false);
-  const [modalIsOpen2, setModalIsOpen2] = useState(false);
+  const [activeVimeoUrl, setActiveVimeoUrl] = useState<string | null>(null);
   const posters = [
-    "https://ucarecdn.com/cdf9bad4-9b3d-475f-b5ed-fdeb700b356c/21TheFieryPriestSeason2Episode1JeremyBrownBretLindquistActoratDinnerwithLeeHoney.webp",
-    "https://ucarecdn.com/6de059a5-3700-4672-8232-d36e6dcab544/BretLindquistDynamiteManChiefDetective1958Season1Episode219582.webp",
-    "https://ucarecdn.com/b62d831a-49d8-41b8-89c9-524eb4e759f4/BretLindquistJangsariActor.webp",
-    "https://ucarecdn.com/d47a3788-44ef-4f19-aeb5-740d14559939/BretLindquistActorReelsScreenshots.webp",
+    {
+      src: "https://ucarecdn.com/cdf9bad4-9b3d-475f-b5ed-fdeb700b356c/21TheFieryPriestSeason2Episode1JeremyBrownBretLindquistActoratDinnerwithLeeHoney.webp",
+      alt: "The Fiery Priest 2 - Jeremy Brown",
+      vimeoUrl: "https://vimeo.com/1046306068",
+    },
+    {
+      src: "https://ucarecdn.com/6de059a5-3700-4672-8232-d36e6dcab544/BretLindquistDynamiteManChiefDetective1958Season1Episode219582.webp",
+      alt: "Chief Detective 1958 - Dynamite Man",
+      vimeoUrl: "https://vimeo.com/940387499",
+    },
+    {
+      src: "https://ucarecdn.com/b62d831a-49d8-41b8-89c9-524eb4e759f4/BretLindquistJangsariActor.webp",
+      alt: "Battle of Jangsari",
+    },
+    {
+      src: "/images/poster-hwaja-scarlet.webp",
+      alt: "Hwaja's Scarlet",
+      vimeoUrl: "https://player.vimeo.com/video/1190790512?h=1ef23a0b3f",
+    },
+    {
+      src: "https://ucarecdn.com/d47a3788-44ef-4f19-aeb5-740d14559939/BretLindquistActorReelsScreenshots.webp",
+      alt: "Acting Reels Screenshots",
+      vimeoUrl: "https://player.vimeo.com/video/792160179?h=e868574304",
+    },
   ];
 
   return (
     <section id="acting" className="p-8 bg-black">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div onClick={() => setModalIsOpen1(true)} style={{ cursor: 'pointer' }}>
-          <Image
-            src={posters[0]}
-            alt="Poster 1"
-            width={500}
-            height={750}
-            style={{ width: '100%', height: 'auto' }}
-          />
-        </div>
-        <div onClick={() => setModalIsOpen2(true)} style={{ cursor: 'pointer' }}>
-          <Image
-            src={posters[1]}
-            alt="Poster 2"
-            width={500}
-            height={750}
-            style={{ width: '100%', height: 'auto' }}
-          />
-        </div>
-        <div>
-          <Image
-            src={posters[2]}
-            alt="Poster 3"
-            width={500}
-            height={750}
-            style={{ width: '100%', height: 'auto' }}
-          />
-        </div>
-        <div>
-          <Image
-            src={posters[3]}
-            alt="Poster 4"
-            width={500}
-            height={750}
-            style={{ width: '100%', height: 'auto' }}
-          />
-        </div>
+        {posters.map((poster) => (
+          <div
+            key={poster.alt}
+            onClick={() => poster.vimeoUrl && setActiveVimeoUrl(poster.vimeoUrl)}
+            style={{ cursor: poster.vimeoUrl ? 'pointer' : 'default' }}
+          >
+            <Image
+              src={poster.src}
+              alt={poster.alt}
+              width={500}
+              height={750}
+              style={{ width: '100%', height: 'auto' }}
+            />
+          </div>
+        ))}
       </div>
 
       <VimeoModal
-        isOpen={modalIsOpen1}
-        onRequestClose={() => setModalIsOpen1(false)}
-        vimeoUrl="https://vimeo.com/1046306068"
-      />
-      <VimeoModal
-        isOpen={modalIsOpen2}
-        onRequestClose={() => setModalIsOpen2(false)}
-        vimeoUrl="https://vimeo.com/940387499"
+        isOpen={Boolean(activeVimeoUrl)}
+        onRequestClose={() => setActiveVimeoUrl(null)}
+        vimeoUrl={activeVimeoUrl || ""}
       />
     </section>
   );

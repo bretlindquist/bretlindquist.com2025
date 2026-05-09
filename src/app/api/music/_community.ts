@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { parseMusicList } from './_entries'
 
@@ -40,6 +40,11 @@ async function readLocalCommunityLists() {
   } catch {
     return []
   }
+}
+
+async function writeLocalCommunityLists(lists: CommunityListRecord[]) {
+  await mkdir(path.dirname(LOCAL_PATH), { recursive: true })
+  await writeFile(LOCAL_PATH, JSON.stringify(lists, null, 2) + '\n', 'utf8')
 }
 
 async function readGitHubCommunityLists(config: NonNullable<ReturnType<typeof githubConfig>>) {
@@ -87,7 +92,25 @@ export async function addCommunityList(input: { name: string; text: string }) {
 
   const config = githubConfig()
   if (!config) {
-    throw new Error('Community list publishing is not configured on this deployment.')
+    const lists = await readLocalCommunityLists()
+    const baseId = slugify(name) || 'list'
+    let nextId = baseId
+    let suffix = 2
+
+    while (lists.some((list) => list.id === nextId)) {
+      nextId = `${baseId}-${suffix}`
+      suffix += 1
+    }
+
+    const nextRecord: CommunityListRecord = {
+      id: nextId,
+      name,
+      text,
+      createdAt: new Date().toISOString(),
+    }
+
+    await writeLocalCommunityLists([nextRecord, ...lists])
+    return nextRecord
   }
 
   const { lists, sha } = await readGitHubCommunityLists(config)

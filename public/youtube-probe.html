@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>YouTube Probe</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 24px;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        background: #07101f;
+        color: #eef4ff;
+      }
+      h1 {
+        margin: 0 0 12px;
+        font-size: 22px;
+      }
+      p {
+        margin: 0 0 16px;
+        color: #9bb0cf;
+      }
+      #player {
+        width: 640px;
+        max-width: 100%;
+        height: 360px;
+        border-radius: 18px;
+        overflow: hidden;
+        background: #000;
+        margin-bottom: 20px;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 160px 1fr;
+        gap: 12px;
+        padding: 10px 12px;
+        border: 1px solid rgba(120, 162, 255, 0.18);
+        border-radius: 12px;
+        background: rgba(9, 19, 38, 0.85);
+        margin-bottom: 10px;
+      }
+      .ok { color: #84efb0; }
+      .bad { color: #ff9a8c; }
+      code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    </style>
+  </head>
+  <body>
+    <h1>YouTube Embed Probe</h1>
+    <p id="summary">Waiting for candidate list…</p>
+    <div id="player"></div>
+    <div id="results"></div>
+    <script>
+      const params = new URLSearchParams(window.location.search)
+      const ids = (params.get('ids') || '')
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean)
+      const playlist = (params.get('playlist') || '').trim()
+      const origin = `${window.location.protocol}//${window.location.host}`
+      const host = params.get('host') === 'nocookie' ? 'https://www.youtube-nocookie.com' : 'https://www.youtube.com'
+      const summary = document.getElementById('summary')
+      const results = document.getElementById('results')
+
+      function addRow(id, status, detail) {
+        const row = document.createElement('div')
+        row.className = 'row'
+        row.innerHTML = `<code>${id}</code><div class="${status === 'playable' ? 'ok' : 'bad'}"><strong>${status}</strong><div>${detail}</div></div>`
+        results.appendChild(row)
+      }
+
+      if (!ids.length && !playlist) {
+        summary.textContent = 'Pass ?ids=video1,video2,video3 or ?playlist=PLAYLIST_ID'
+      } else {
+        const total = ids.length + (playlist ? 1 : 0)
+        summary.textContent = `Testing ${total} candidate(s)… (${host})`
+      }
+
+      let player
+      let index = 0
+
+      function finish() {
+        summary.textContent = `Finished probing ${ids.length} candidate(s).`
+      }
+
+      function next() {
+        if (index >= ids.length + (playlist ? 1 : 0)) {
+          finish()
+          return
+        }
+
+        const isPlaylist = Boolean(playlist) && index === 0
+        const videoId = isPlaylist ? playlist : ids[index - (playlist ? 1 : 0)]
+        index += 1
+
+        let settled = false
+        let readyTimer = null
+        let hardTimer = null
+
+        const done = (status, detail) => {
+          if (settled) return
+          settled = true
+          clearTimeout(readyTimer)
+          clearTimeout(hardTimer)
+          addRow(isPlaylist ? `playlist:${videoId}` : videoId, status, detail)
+          setTimeout(next, 200)
+        }
+
+        const playerVars = {
+          autoplay: 1,
+          playsinline: 1,
+          rel: 0,
+          origin,
+        }
+
+        if (!player) {
+          player = new YT.Player('player', {
+            host,
+            ...(isPlaylist ? {} : { videoId }),
+            playerVars,
+            ...(isPlaylist ? { playerVars: { ...playerVars, listType: 'playlist', list: videoId } } : {}),
+            events: {
+              onReady() {
+                readyTimer = setTimeout(() => done('failed', 'ready but never became playable/cued'), 1800)
+              },
+              onStateChange(event) {
+                if (event.data === 1 || event.data === 2 || event.data === 5) {
+                  done('playable', `state ${event.data}`)
+                }
+              },
+              onError(event) {
+                done('failed', `error ${event.data}`)
+              },
+            },
+          })
+        } else {
+          if (isPlaylist) player.loadPlaylist(videoId)
+          else player.loadVideoById(videoId)
+          readyTimer = setTimeout(() => done('failed', 'loaded but never became playable/cued'), 1800)
+        }
+
+        hardTimer = setTimeout(() => done('failed', 'timed out'), 3500)
+      }
+
+      window.onYouTubeIframeAPIReady = () => {
+        if (!ids.length && !playlist) return
+        next()
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://www.youtube.com/iframe_api'
+      document.head.appendChild(script)
+    </script>
+  </body>
+</html>

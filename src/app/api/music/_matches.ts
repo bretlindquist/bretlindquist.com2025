@@ -19,6 +19,24 @@ type MusicMatchRecord = {
 
 const LOCAL_PATH = path.join(process.cwd(), 'data', 'music-matches.json')
 const DEFAULT_REMOTE_PATH = 'data/music-matches.json'
+const DEFAULT_EMBED_ORIGIN = process.env.NEXT_PUBLIC_SITE_ORIGIN || 'http://localhost:3000'
+
+function buildEmbedUrl(result: Pick<SearchResult, 'kind' | 'videoId' | 'playlistId'>) {
+  const origin = encodeURIComponent(DEFAULT_EMBED_ORIGIN)
+  if (result.kind === 'playlist' && result.playlistId) {
+    return `https://www.youtube.com/embed/videoseries?list=${result.playlistId}&autoplay=1&playsinline=1&origin=${origin}`
+  }
+
+  return `https://www.youtube.com/embed/${result.videoId}?autoplay=1&playsinline=1&origin=${origin}`
+}
+
+function buildUrl(result: Pick<SearchResult, 'kind' | 'videoId' | 'playlistId'>) {
+  if (result.kind === 'playlist' && result.playlistId) {
+    return `https://www.youtube.com/playlist?list=${result.playlistId}`
+  }
+
+  return `https://www.youtube.com/watch?v=${result.videoId}`
+}
 
 function githubConfig() {
   const owner = process.env.MUSIC_LISTS_GITHUB_OWNER || ''
@@ -41,13 +59,23 @@ function normalize(value: string) {
 }
 
 function normalizeResult(result: SearchResult): SearchResult {
+  const kind = result.kind || (result.playlistId ? 'playlist' : 'video')
   return {
     ...result,
+    kind,
     ok: true,
-    url: result.url || `https://www.youtube.com/watch?v=${result.videoId}`,
-    embedUrl: result.embedUrl || `https://www.youtube.com/embed/${result.videoId}?autoplay=1&playsinline=1`,
+    url: result.url || buildUrl({ ...result, kind }),
+    embedUrl: buildEmbedUrl({ ...result, kind }),
     warning: result.warning ?? null,
-    candidates: Array.isArray(result.candidates) ? result.candidates : [],
+    debug: undefined,
+    candidates: Array.isArray(result.candidates)
+        ? result.candidates.map((candidate) => ({
+          ...candidate,
+          kind: candidate.kind || (candidate.playlistId ? 'playlist' : 'video'),
+          url: candidate.url || buildUrl(candidate),
+          embedUrl: buildEmbedUrl(candidate),
+        }))
+      : [],
   }
 }
 

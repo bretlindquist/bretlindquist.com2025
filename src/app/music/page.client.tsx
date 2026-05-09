@@ -1,6 +1,9 @@
 "use client"
 
+import Image from 'next/image'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import YouTubePreviewPlayer from './YouTubePreviewPlayer'
+import { loadYouTubeIframeApi, type YouTubePlayerApi } from './youtubeIframeApi'
 import type {
   Decision,
   DecisionMap,
@@ -8,6 +11,7 @@ import type {
   HistoryItem,
   ListFilter,
   ListOption,
+  LocalPreview,
   SearchCandidate,
   SearchResult,
   StoredListState,
@@ -51,6 +55,113 @@ function findNextPendingIndex(entries: Entry[], decisions: DecisionMap, startIdx
   return clamp(startIdx, 0, Math.max(entries.length - 1, 0))
 }
 
+function normalizeLoose(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function isAlbumRelevantCandidate(entry: Entry, candidate: SearchCandidate) {
+  const album = normalizeLoose(entry.album)
+  const text = normalizeLoose(`${candidate.title} ${candidate.channel}`)
+  if (!album) return true
+  if (text.includes(album)) return true
+
+  const tokens = album.split(/\s+/).filter(Boolean)
+  const matched = tokens.filter((token) => text.includes(token)).length
+  return matched >= Math.min(2, tokens.length)
+}
+
+function candidateId(candidate: Pick<SearchCandidate, 'kind' | 'videoId' | 'playlistId'>) {
+  return candidate.kind === 'playlist' ? candidate.playlistId || '' : candidate.videoId || ''
+}
+
+function sameCandidate(
+  left: Pick<SearchCandidate, 'kind' | 'videoId' | 'playlistId'>,
+  right: Pick<SearchCandidate, 'kind' | 'videoId' | 'playlistId'>,
+) {
+  return left.kind === right.kind && candidateId(left) === candidateId(right)
+}
+
+function candidateFromResult(result: SearchResult): SearchCandidate {
+  return {
+    kind: result.kind,
+    videoId: result.videoId,
+    playlistId: result.playlistId,
+    title: result.title,
+    channel: result.channel,
+    url: result.url,
+    embedUrl: result.embedUrl,
+    score: result.candidates[0]?.score ?? 0,
+  }
+}
+
+async function probePlayableCandidate(candidate: SearchCandidate, origin: string) {
+  if (typeof window === 'undefined') return false
+
+  const YT = await loadYouTubeIframeApi()
+
+  return new Promise<boolean>((resolve) => {
+    const host = document.createElement('div')
+    host.style.position = 'fixed'
+    host.style.left = '-9999px'
+    host.style.top = '0'
+    host.style.width = '320px'
+    host.style.height = '180px'
+    host.style.opacity = '0'
+    host.style.pointerEvents = 'none'
+    document.body.appendChild(host)
+
+    let settled = false
+    let readyTimeoutId: number | null = null
+    let player: YouTubePlayerApi | null = null
+
+    const finish = (ok: boolean) => {
+      if (settled) return
+      settled = true
+      window.clearTimeout(timeoutId)
+      if (readyTimeoutId !== null) {
+        window.clearTimeout(readyTimeoutId)
+        readyTimeoutId = null
+      }
+      try {
+        player?.destroy()
+      } catch {}
+      host.remove()
+      resolve(ok)
+    }
+
+    const timeoutId = window.setTimeout(() => finish(false), 3500)
+
+    const playerOptions = {
+      ...(candidate.kind === 'video' && candidate.videoId ? { videoId: candidate.videoId } : {}),
+      playerVars: {
+        autoplay: 0,
+        playsinline: 1,
+        rel: 0,
+        origin,
+        ...(candidate.kind === 'playlist' && candidate.playlistId ? { listType: 'playlist', list: candidate.playlistId } : {}),
+      },
+      events: {
+        onReady: () => {
+          readyTimeoutId = window.setTimeout(() => finish(false), 1600)
+        },
+        onStateChange: (event: { data?: number }) => {
+          if (event.data === 1 || event.data === 2 || event.data === 5) {
+            finish(true)
+          }
+        },
+        onError: () => finish(false),
+      },
+    }
+
+    player = new YT.Player(host, playerOptions)
+  })
+}
+
 type MusicPageClientProps = {
   initialLists: ListOption[]
   initialSelectedListId: string
@@ -86,6 +197,16 @@ export default function MusicPageClient({
   const [newListText, setNewListText] = useState('')
   const [savingList, setSavingList] = useState(false)
   const [listFormError, setListFormError] = useState<string | null>(null)
+  const [playerNotice, setPlayerNotice] = useState<string | null>(null)
+  const [embedFailures, setEmbedFailures] = useState<Record<number, string[]>>({})
+  const [resolvedCandidate, setResolvedCandidate] = useState<SearchCandidate | null>(initialResult ? candidateFromResult(initialResult) : null)
+  const [playerPending, setPlayerPending] = useState(false)
+  const [probeEvents, setProbeEvents] = useState<string[]>([])
+  const [embedErrorEvents, setEmbedErrorEvents] = useState<Array<{ candidateId: string; errorCode: number }>>([])
+  const [localPreview, setLocalPreview] = useState<LocalPreview | null>(null)
+  const [loadingLocalPreview, setLoadingLocalPreview] = useState(false)
+  const [cachingLocalPreview, setCachingLocalPreview] = useState(false)
+  const [localPreviewError, setLocalPreviewError] = useState<string | null>(null)
   const autoPreviewIndexRef = useRef<number | null>(null)
   const currentIndexRef = useRef<number | null>(null)
   const inFlightSearchesRef = useRef<Map<number, Promise<SearchResult | null>>>(new Map())
@@ -99,6 +220,18 @@ export default function MusicPageClient({
   const selectedList = lists.find((list) => list.id === selectedFile) || null
   const builtInLists = useMemo(() => lists.filter((list) => list.source === 'built-in'), [lists])
   const communityLists = useMemo(() => lists.filter((list) => list.source === 'community'), [lists])
+  const playerOrigin = typeof window === 'undefined' ? 'http://localhost:3000' : window.location.origin
+  const showDebugTrace = process.env.NODE_ENV !== 'production'
+  const shouldPreferAudioPreview = Boolean(result?.audioPreview?.previewUrl) && result?.previewStrategy === 'audio'
+  const usingAudioFallback = Boolean(result?.audioPreview?.previewUrl) && !resolvedCandidate && !playerPending
+  const previewSourceUrl = useMemo(() => {
+    if (localPreview?.localUrl) return localPreview.localUrl
+    if (shouldPreferAudioPreview && result?.audioPreview?.previewUrl) return result.audioPreview.previewUrl
+    if (resolvedCandidate?.kind === 'video' && resolvedCandidate.url) return resolvedCandidate.url
+    if (result?.kind === 'video' && result.url) return result.url
+    if (result?.audioPreview?.previewUrl) return result.audioPreview.previewUrl
+    return ''
+  }, [localPreview, resolvedCandidate, result, shouldPreferAudioPreview])
 
   const restoreStoredState = useCallback((listId: string, nextEntries: Entry[]) => {
     const validIndices = new Set<number>(nextEntries.map((entry) => entry.index))
@@ -230,6 +363,12 @@ export default function MusicPageClient({
       setHistory([])
       setResult(nextInitialResult)
       setResultCache(nextEntries[0] && nextInitialResult ? { [nextEntries[0].index]: nextInitialResult } : {})
+      setEmbedFailures({})
+      setPlayerNotice(null)
+      setResolvedCandidate(nextInitialResult ? candidateFromResult(nextInitialResult) : null)
+      setPlayerPending(Boolean(nextInitialResult))
+      setLocalPreview(null)
+      setLocalPreviewError(null)
       setListFilter(restored.restoredFilter)
       autoPreviewIndexRef.current = nextEntries[restored.restoredIdx]?.index ?? null
       setLoadingEntries(false)
@@ -244,12 +383,57 @@ export default function MusicPageClient({
   useEffect(() => {
     if (!current) {
       setResult(null)
+      setPlayerNotice(null)
+      setResolvedCandidate(null)
+      setPlayerPending(false)
+      setLocalPreview(null)
+      setLocalPreviewError(null)
       return
     }
 
     setResult(currentCache)
     setError(null)
+    setPlayerNotice(null)
+    setProbeEvents([])
+    setEmbedErrorEvents([])
   }, [current, currentCache])
+
+  useEffect(() => {
+    if (!current) {
+      setLocalPreview(null)
+      setLoadingLocalPreview(false)
+      setLocalPreviewError(null)
+      return
+    }
+
+    let cancelled = false
+    setLoadingLocalPreview(true)
+    setLocalPreviewError(null)
+
+    ;(async () => {
+      try {
+        const params = new URLSearchParams({
+          artist: current.artist,
+          album: current.album,
+        })
+        const response = await fetch(`/api/music/preview-cache?${params.toString()}`)
+        const json = await response.json()
+        if (cancelled) return
+        if (!json.ok) throw new Error(json.error || 'failed to load local preview')
+        setLocalPreview(json.preview || null)
+      } catch (err: unknown) {
+        if (cancelled) return
+        setLocalPreview(null)
+        setLocalPreviewError(err instanceof Error ? err.message : 'failed to load local preview')
+      } finally {
+        if (!cancelled) setLoadingLocalPreview(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [current])
 
   const keepEntries = useMemo(() => entries.filter((entry) => decisions[entry.index] === 'keep'), [entries, decisions])
   const skipEntries = useMemo(() => entries.filter((entry) => decisions[entry.index] === 'skip'), [entries, decisions])
@@ -281,7 +465,9 @@ export default function MusicPageClient({
   }, [pendingEntries])
 
   const alternateCandidates = useMemo(() => {
-    return (result?.candidates || []).filter((candidate) => candidate.videoId !== result?.videoId)
+    if (!result) return []
+
+    return (result.candidates || []).filter((candidate) => !sameCandidate(candidate, candidateFromResult(result)))
   }, [result])
 
   const newListPreview = useMemo(() => {
@@ -397,7 +583,9 @@ export default function MusicPageClient({
 
     const nextResult = {
       ...result,
+      kind: candidate.kind,
       videoId: candidate.videoId,
+      playlistId: candidate.playlistId,
       title: candidate.title,
       channel: candidate.channel,
       url: candidate.url,
@@ -406,6 +594,9 @@ export default function MusicPageClient({
 
     setResult(nextResult)
     setResultCache((cache) => ({ ...cache, [current.index]: nextResult }))
+    setPlayerNotice(null)
+    setResolvedCandidate(candidate)
+    setPlayerPending(false)
 
     void fetch('/api/music/search', {
       method: 'POST',
@@ -418,6 +609,147 @@ export default function MusicPageClient({
       }),
     })
   }, [current, result])
+
+  const handleEmbedError = useCallback((resourceId: string, errorCode: number) => {
+    if (!current || !result) return
+
+    const knownFailedIds = embedFailures[current.index] || []
+    const failedIds = new Set([...knownFailedIds, resourceId])
+
+    setEmbedFailures((existing) => ({
+      ...existing,
+      [current.index]: Array.from(failedIds),
+    }))
+    setEmbedErrorEvents((existing) => [...existing, { candidateId: resourceId, errorCode }])
+    setProbeEvents((existing) => [...existing, `embed error ${errorCode} for ${resourceId}`])
+    setResolvedCandidate(null)
+    setPlayerPending(true)
+    setPlayerNotice(`Embed error ${errorCode}. Trying another preview candidate…`)
+  }, [current, embedFailures, result])
+
+  const handlePlaybackReady = useCallback(() => {
+    setPlayerPending(false)
+    setPlayerNotice(null)
+    setProbeEvents((existing) => [...existing, 'visible player reported ready'])
+  }, [])
+
+  useEffect(() => {
+    if (!current || !result) {
+      setResolvedCandidate(null)
+      setPlayerPending(false)
+      return
+    }
+
+    if (localPreview?.localUrl) {
+      setResolvedCandidate(null)
+      setPlayerPending(false)
+      setPlayerNotice('Using the cached local preview for this album.')
+      return
+    }
+
+    if (shouldPreferAudioPreview && result.audioPreview?.previewUrl) {
+      setResolvedCandidate(null)
+      setPlayerPending(false)
+      setPlayerNotice('Using the album preview because YouTube embeds are unreliable for this result.')
+      return
+    }
+
+    const failedIds = new Set(embedFailures[current.index] || [])
+    const allCandidates = [candidateFromResult(result), ...alternateCandidates]
+    const relevantCandidates = allCandidates.filter((candidate) => isAlbumRelevantCandidate(current, candidate))
+    const candidatePool = relevantCandidates.length ? relevantCandidates : allCandidates
+    const candidates = candidatePool.filter((candidate, index, list) => (
+      !failedIds.has(candidateId(candidate)) && list.findIndex((item) => sameCandidate(item, candidate)) === index
+    ))
+
+    if (!candidates.length) {
+      setResolvedCandidate(null)
+      setPlayerPending(false)
+      setPlayerNotice(
+        result.audioPreview?.previewUrl
+          ? 'YouTube embeds are unavailable for this result here. Using a 30-second album preview instead.'
+          : 'No embeddable preview candidate worked. Use Open YouTube or try another alternate match.',
+      )
+      return
+    }
+
+    let cancelled = false
+    setPlayerPending(true)
+
+    const resolveCandidate = async () => {
+      for (const candidate of candidates) {
+        setProbeEvents((existing) => [...existing, `probing ${candidate.kind}:${candidateId(candidate)} ${candidate.title}`])
+        const ok = await probePlayableCandidate(candidate, playerOrigin)
+        if (cancelled) return
+
+        if (ok) {
+          setProbeEvents((existing) => [...existing, `probe accepted ${candidate.kind}:${candidateId(candidate)}`])
+          setResolvedCandidate(candidate)
+          setPlayerPending(true)
+          if (failedIds.size) {
+            setPlayerNotice('Trying another preview candidate…')
+          } else {
+            setPlayerNotice(null)
+          }
+          if (!sameCandidate(candidate, candidateFromResult(result)) && isAlbumRelevantCandidate(current, candidate)) {
+            chooseCandidate(candidate)
+          }
+          return
+        }
+
+        setProbeEvents((existing) => [...existing, `probe rejected ${candidate.kind}:${candidateId(candidate)}`])
+      }
+
+      if (cancelled) return
+      setResolvedCandidate(null)
+      setPlayerPending(false)
+      setPlayerNotice(
+        result.audioPreview?.previewUrl
+          ? 'YouTube embeds are unavailable for this result here. Using a 30-second album preview instead.'
+          : 'No embeddable preview candidate worked. Use Open YouTube or try another alternate match.',
+      )
+    }
+
+    void resolveCandidate()
+
+    return () => {
+      cancelled = true
+    }
+  }, [alternateCandidates, chooseCandidate, current, embedFailures, localPreview, playerOrigin, result, shouldPreferAudioPreview])
+
+  useEffect(() => {
+    if (!result?.audioPreview?.previewUrl || resolvedCandidate || playerPending) return
+    setPlayerNotice('YouTube embeds are unavailable for this result here. Using a 30-second album preview instead.')
+  }, [playerPending, resolvedCandidate, result])
+
+  const debugTrace = useMemo(() => {
+    if (!result) return null
+
+    return {
+      ...(result.debug || {}),
+      client: {
+        failedCandidateIds: current ? (embedFailures[current.index] || []) : [],
+        chosenCandidateId: resolvedCandidate ? candidateId(resolvedCandidate) : null,
+        playerNotice,
+        probeEvents,
+        embedErrors: embedErrorEvents,
+        finalPreviewMode: localPreview
+          ? 'local-preview'
+          : resolvedCandidate
+          ? 'youtube'
+          : result.audioPreview?.previewUrl && !playerPending
+            ? 'audio-preview'
+            : playerPending
+              ? null
+              : 'none',
+      },
+    }
+  }, [current, embedErrorEvents, embedFailures, localPreview, playerNotice, playerPending, probeEvents, resolvedCandidate, result])
+
+  useEffect(() => {
+    if (!showDebugTrace || !debugTrace) return
+    console.debug('[music-trace]', debugTrace)
+  }, [debugTrace, showDebugTrace])
 
   const applyDecision = useCallback((decision: Decision, options?: { autoPreviewNext?: boolean }) => {
     if (!current) return
@@ -482,6 +814,35 @@ export default function MusicPageClient({
   const openCurrentResult = useCallback(() => {
     if (result?.url) window.open(result.url, '_blank', 'noopener,noreferrer')
   }, [result?.url])
+
+  const cacheCurrentPreview = useCallback(async () => {
+    if (!current || !previewSourceUrl) return
+
+    setCachingLocalPreview(true)
+    setLocalPreviewError(null)
+
+    try {
+      const response = await fetch('/api/music/preview-cache', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          artist: current.artist,
+          album: current.album,
+          title: result?.title || current.album,
+          channel: result?.channel || current.artist,
+          sourceUrl: previewSourceUrl,
+        }),
+      })
+      const json = await response.json()
+      if (!json.ok) throw new Error(json.error || 'failed to cache local preview')
+      setLocalPreview(json.preview || null)
+      setPlayerNotice('Local preview cached. This album can now play from local storage.')
+    } catch (err: unknown) {
+      setLocalPreviewError(err instanceof Error ? err.message : 'failed to cache local preview')
+    } finally {
+      setCachingLocalPreview(false)
+    }
+  }, [current, previewSourceUrl, result])
 
   const submitNewList = useCallback(async () => {
     if (!newListName.trim()) {
@@ -765,6 +1126,13 @@ export default function MusicPageClient({
                     <button className="action-btn ghost" onClick={() => result?.url && window.open(result.url, '_blank', 'noopener,noreferrer')} disabled={!result?.url}>
                       Open YouTube
                     </button>
+                    <button
+                      className="action-btn ghost"
+                      onClick={() => void cacheCurrentPreview()}
+                      disabled={!previewSourceUrl || cachingLocalPreview || loadingLocalPreview}
+                    >
+                      {cachingLocalPreview ? 'Caching…' : localPreview ? 'Refresh Local Preview' : 'Cache Local Preview'}
+                    </button>
                   </div>
                 </>
               ) : (
@@ -799,21 +1167,190 @@ export default function MusicPageClient({
 
                   {result.warning ? <div className="warning-banner">{result.warning}</div> : null}
 
-                  <iframe
-                    key={result.embedUrl}
-                    title="music-player"
-                    src={result.embedUrl}
-                    className="player-frame"
-                    allow="autoplay; encrypted-media"
-                    allowFullScreen
-                  />
+                  {localPreview ? (
+                    <div className="audio-preview-card">
+                      <div className="audio-preview-art">
+                        {result.audioPreview?.artworkUrl600 || result.audioPreview?.artworkUrl100 ? (
+                          <Image
+                            src={(result.audioPreview.artworkUrl600 || result.audioPreview.artworkUrl100)!}
+                            alt={`${current?.album || result.title} cover art`}
+                            width={600}
+                            height={600}
+                            unoptimized
+                          />
+                        ) : null}
+                      </div>
+                      <div className="audio-preview-copy">
+                        <p className="audio-preview-kicker">Local preview cache</p>
+                        <strong>{localPreview.title}</strong>
+                        <span>{localPreview.channel}</span>
+                        <small>{localPreview.artist} · {localPreview.album}</small>
+                        <audio
+                          key={localPreview.localUrl}
+                          controls
+                          preload="metadata"
+                          className="audio-preview-player"
+                          src={localPreview.localUrl}
+                        />
+                      </div>
+                    </div>
+                  ) : shouldPreferAudioPreview && result.audioPreview?.previewUrl ? (
+                    <div className="audio-preview-card">
+                      <div className="audio-preview-art">
+                        {result.audioPreview.artworkUrl600 || result.audioPreview.artworkUrl100 ? (
+                          <Image
+                            src={(result.audioPreview.artworkUrl600 || result.audioPreview.artworkUrl100)!}
+                            alt={`${result.audioPreview.collectionName} cover art`}
+                            width={600}
+                            height={600}
+                            unoptimized
+                          />
+                        ) : null}
+                      </div>
+                      <div className="audio-preview-copy">
+                        <p className="audio-preview-kicker">Album preview fallback</p>
+                        <strong>{result.audioPreview.trackName}</strong>
+                        <span>{result.audioPreview.artistName}</span>
+                        <small>{result.audioPreview.collectionName}</small>
+                        <audio
+                          key={result.audioPreview.previewUrl}
+                          controls
+                          preload="metadata"
+                          className="audio-preview-player"
+                          src={result.audioPreview.previewUrl}
+                        />
+                      </div>
+                    </div>
+                  ) : resolvedCandidate && !playerPending ? (
+                    <YouTubePreviewPlayer
+                      className="player-frame"
+                      kind={resolvedCandidate.kind}
+                      videoId={resolvedCandidate.videoId}
+                      playlistId={resolvedCandidate.playlistId}
+                      origin={playerOrigin}
+                      onPlaybackReady={handlePlaybackReady}
+                      onEmbedError={handleEmbedError}
+                    />
+                  ) : !playerPending && result.audioPreview?.previewUrl ? (
+                    <div className="audio-preview-card">
+                      <div className="audio-preview-art">
+                        {result.audioPreview.artworkUrl600 || result.audioPreview.artworkUrl100 ? (
+                          <Image
+                            src={(result.audioPreview.artworkUrl600 || result.audioPreview.artworkUrl100)!}
+                            alt={`${result.audioPreview.collectionName} cover art`}
+                            width={600}
+                            height={600}
+                            unoptimized
+                          />
+                        ) : null}
+                      </div>
+                      <div className="audio-preview-copy">
+                        <p className="audio-preview-kicker">Album preview fallback</p>
+                        <strong>{result.audioPreview.trackName}</strong>
+                        <span>{result.audioPreview.artistName}</span>
+                        <small>{result.audioPreview.collectionName}</small>
+                        <audio
+                          key={result.audioPreview.previewUrl}
+                          controls
+                          preload="none"
+                          className="audio-preview-player"
+                          src={result.audioPreview.previewUrl}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="player-placeholder" aria-hidden="true">
+                      <div className="player-placeholder-bar short" />
+                      <div className="player-placeholder-bar" />
+                      <div className="player-placeholder-bar" />
+                    </div>
+                  )}
+
+                  <div className="player-feedback" aria-live="polite">
+                    {playerNotice ? <div className="warning-banner">{playerNotice}</div> : null}
+                    {localPreviewError ? <div className="error-banner">Local preview error: {localPreviewError}</div> : null}
+                  </div>
+
+                  {showDebugTrace && debugTrace ? (
+                    <details className="debug-trace-panel">
+                      <summary>Debug trace</summary>
+                      <div className="debug-trace-grid">
+                        <div>
+                          <span className="debug-label">Provider</span>
+                          <strong>{debugTrace.server?.provider || 'unknown'}</strong>
+                        </div>
+                        <div>
+                          <span className="debug-label">Cache</span>
+                          <strong>{debugTrace.server?.cache || 'unknown'}</strong>
+                        </div>
+                        <div>
+                          <span className="debug-label">Fallback</span>
+                          <strong>{debugTrace.server?.resolverFallback || 'none'}</strong>
+                        </div>
+                        <div>
+                          <span className="debug-label">Final mode</span>
+                          <strong>{debugTrace.client?.finalPreviewMode || 'pending'}</strong>
+                        </div>
+                      </div>
+
+                      {debugTrace.server?.notes?.length ? (
+                        <div className="debug-block">
+                          <span className="debug-label">Server notes</span>
+                          <ul>
+                            {debugTrace.server.notes.map((note) => (
+                              <li key={note}>{note}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+
+                      {debugTrace.client?.probeEvents?.length ? (
+                        <div className="debug-block">
+                          <span className="debug-label">Probe events</span>
+                          <ul>
+                            {debugTrace.client.probeEvents.map((event, index) => (
+                              <li key={`${index}:${event}`}>{event}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+
+                      {debugTrace.client?.embedErrors?.length ? (
+                        <div className="debug-block">
+                          <span className="debug-label">Embed errors</span>
+                          <ul>
+                            {debugTrace.client.embedErrors.map((event, index) => (
+                              <li key={`${index}:${event.candidateId}:${event.errorCode}`}>
+                                {event.candidateId}: {event.errorCode}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+
+                      {debugTrace.server?.candidates?.length ? (
+                        <div className="debug-block">
+                          <span className="debug-label">Server candidates</span>
+                          <ul>
+                            {debugTrace.server.candidates.map((candidate) => (
+                              <li key={`${candidate.kind}:${candidate.videoId || candidate.playlistId || candidate.title}`}>
+                                {candidate.kind} · {candidate.title} · {candidate.score.toFixed(2)}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                    </details>
+                  ) : null}
 
                   {alternateCandidates.length ? (
                     <div className="alternate-matches">
-                      <p className="alternate-label">Alternate matches</p>
+                      <p className="alternate-label">
+                        {usingAudioFallback ? 'Blocked YouTube alternates' : 'Alternate matches'}
+                      </p>
                       <div className="alternate-grid">
                         {alternateCandidates.map((candidate) => (
-                          <button key={candidate.videoId} className="alternate-card" onClick={() => chooseCandidate(candidate)}>
+                          <button key={`${candidate.kind}:${candidateId(candidate)}`} className="alternate-card" onClick={() => chooseCandidate(candidate)}>
                             <strong>{candidate.title}</strong>
                             <span>{candidate.channel}</span>
                           </button>
@@ -1048,7 +1585,7 @@ export default function MusicPageClient({
             <div className="modal-preview">
               <div className="modal-preview-head">
                 <strong>{newListPreview.count} lines detected</strong>
-                <span>{publishEnabled ? 'Saves globally for everyone' : 'Publishing is not configured yet on this deployment'}</span>
+                <span>{publishEnabled ? 'Saves globally for everyone' : 'Saves locally in this project on this machine'}</span>
               </div>
 
               {newListPreview.sample.length ? (
@@ -1085,7 +1622,7 @@ export default function MusicPageClient({
                 type="button"
                 className="action-btn primary"
                 onClick={() => void submitNewList()}
-                disabled={savingList || !publishEnabled}
+                disabled={savingList}
               >
                 {savingList ? 'Saving…' : 'Save list'}
               </button>
@@ -1239,6 +1776,7 @@ export default function MusicPageClient({
         .current-panel {
           display: grid;
           gap: 14px;
+          overflow: visible;
         }
 
         .current-topline {
@@ -1409,7 +1947,8 @@ export default function MusicPageClient({
           gap: 8px;
           max-height: 280px;
           overflow: auto;
-          padding-right: 2px;
+          padding: 2px 10px 2px 2px;
+          scrollbar-gutter: stable;
         }
 
         .picker-option {
@@ -1419,6 +1958,7 @@ export default function MusicPageClient({
           gap: 12px;
           align-items: center;
           padding: 12px 14px;
+          min-width: 0;
           border-radius: 18px;
           border: 1px solid rgba(255, 255, 255, 0.06);
           background: rgba(9, 18, 33, 0.86);
@@ -1439,10 +1979,15 @@ export default function MusicPageClient({
 
         .picker-option-title {
           display: block;
+          flex: 1 1 auto;
           min-width: 0;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+        }
+
+        .picker-option-tag {
+          flex: 0 0 auto;
         }
 
         .add-list-btn,
@@ -1882,10 +2427,155 @@ export default function MusicPageClient({
 
         .player-frame {
           width: 100%;
-          min-height: 380px;
+          height: 620px;
           border: 0;
           border-radius: 24px;
           background: #000;
+          overflow: hidden;
+          position: relative;
+        }
+
+        .player-frame :global(div),
+        .player-frame :global(iframe) {
+          width: 100% !important;
+          height: 100% !important;
+          border: 0;
+          display: block;
+          border-radius: inherit;
+        }
+
+        .player-placeholder {
+          width: 100%;
+          height: 620px;
+          border-radius: 24px;
+          background: linear-gradient(135deg, rgba(15, 31, 56, 0.92), rgba(8, 15, 28, 0.96));
+          border: 1px solid rgba(125, 211, 252, 0.08);
+          display: grid;
+          align-content: center;
+          gap: 14px;
+          padding: 28px;
+        }
+
+        .audio-preview-card {
+          width: 100%;
+          min-height: 620px;
+          border-radius: 24px;
+          overflow: hidden;
+          border: 1px solid rgba(125, 211, 252, 0.08);
+          background:
+            linear-gradient(180deg, rgba(10, 20, 36, 0.76), rgba(5, 10, 20, 0.94)),
+            radial-gradient(circle at top, rgba(94, 234, 212, 0.14), transparent 42%);
+          display: grid;
+          grid-template-columns: minmax(220px, 280px) 1fr;
+        }
+
+        .audio-preview-art {
+          min-height: 100%;
+          background: rgba(4, 9, 18, 0.92);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 26px;
+        }
+
+        .audio-preview-art img {
+          width: 100%;
+          max-width: 240px;
+          aspect-ratio: 1 / 1;
+          object-fit: cover;
+          border-radius: 20px;
+          box-shadow: 0 26px 60px rgba(0, 0, 0, 0.32);
+        }
+
+        .audio-preview-copy {
+          display: grid;
+          align-content: center;
+          gap: 10px;
+          padding: 34px;
+          background: linear-gradient(180deg, rgba(6, 13, 24, 0.58), rgba(6, 13, 24, 0.9));
+        }
+
+        .audio-preview-kicker {
+          margin: 0;
+          color: var(--accent);
+          text-transform: uppercase;
+          letter-spacing: 0.16em;
+          font-size: 11px;
+        }
+
+        .audio-preview-copy strong {
+          font-size: clamp(1.7rem, 3vw, 2.35rem);
+          line-height: 1.05;
+        }
+
+        .audio-preview-copy span,
+        .audio-preview-copy small {
+          color: var(--muted);
+        }
+
+        .audio-preview-player {
+          width: 100%;
+          margin-top: 10px;
+          filter: saturate(0.92) brightness(1.02);
+        }
+
+        .player-placeholder-bar {
+          height: 16px;
+          border-radius: 999px;
+          background: linear-gradient(90deg, rgba(125, 211, 252, 0.16), rgba(125, 211, 252, 0.04), rgba(125, 211, 252, 0.16));
+        }
+
+        .player-placeholder-bar.short {
+          width: 42%;
+        }
+
+        .player-feedback {
+          min-height: 48px;
+        }
+
+        .debug-trace-panel {
+          border-radius: 18px;
+          border: 1px solid rgba(125, 211, 252, 0.12);
+          background: rgba(7, 14, 27, 0.72);
+          padding: 14px 16px;
+        }
+
+        .debug-trace-panel summary {
+          cursor: pointer;
+          color: var(--muted);
+          text-transform: uppercase;
+          letter-spacing: 0.14em;
+          font-size: 11px;
+          user-select: none;
+        }
+
+        .debug-trace-grid {
+          margin-top: 14px;
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+          gap: 12px;
+        }
+
+        .debug-block {
+          margin-top: 14px;
+          display: grid;
+          gap: 8px;
+        }
+
+        .debug-label {
+          color: var(--muted);
+          text-transform: uppercase;
+          letter-spacing: 0.14em;
+          font-size: 11px;
+        }
+
+        .debug-block ul {
+          margin: 0;
+          padding-left: 18px;
+          display: grid;
+          gap: 6px;
+          color: #dbe7ff;
+          font-size: 0.92rem;
         }
 
         .preview-prompt {
@@ -2260,6 +2950,14 @@ export default function MusicPageClient({
           .player-frame {
             min-height: 360px;
           }
+
+          .audio-preview-card {
+            grid-template-columns: 1fr;
+          }
+
+          .audio-preview-art {
+            padding-bottom: 0;
+          }
         }
 
         @media (max-width: 720px) {
@@ -2306,6 +3004,10 @@ export default function MusicPageClient({
 
           .player-frame {
             min-height: 240px;
+          }
+
+          .audio-preview-art img {
+            max-width: 220px;
           }
 
           .queue-row {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getMusicMatch, saveMusicMatch } from '../_matches'
-import { searchMusicMatch } from '../_search'
+import { resolveMusicMatch } from '../_resolver'
+import { isLikelyUsableSearchResult } from '../_search'
 
 export const runtime = 'nodejs'
 
@@ -20,20 +21,51 @@ export async function POST(req: NextRequest) {
     }
 
     const cached = await getMusicMatch(body)
-    if (cached) {
-      return NextResponse.json(cached)
+    if (cached && cached.confidence !== 'low' && isLikelyUsableSearchResult(cached)) {
+      return NextResponse.json({
+        ...cached,
+        debug: {
+          ...cached.debug,
+          server: {
+            ...(cached.debug?.server || {}),
+            cache: 'hit',
+          },
+        },
+      })
     }
+
+    const cacheStatus: 'miss' | 'skipped-low-confidence' | 'skipped-unusable' = cached
+      ? cached.confidence === 'low'
+        ? 'skipped-low-confidence'
+        : 'skipped-unusable'
+      : 'miss'
 
     if (!resolve) {
       return NextResponse.json({ ok: false, error: 'No saved match yet.' }, { status: 404 })
     }
 
-    const result = await searchMusicMatch(body)
+    const result = await resolveMusicMatch(body)
+    const tracedResult = {
+      ...result,
+      debug: {
+        ...result.debug,
+        server: {
+          ...(result.debug?.server || {}),
+          cache: cacheStatus,
+        },
+      },
+    }
     try {
-      const saved = await saveMusicMatch(body, result)
-      return NextResponse.json(saved)
+      if (tracedResult.confidence === 'low') {
+        return NextResponse.json(tracedResult)
+      }
+      const saved = await saveMusicMatch(body, tracedResult)
+      return NextResponse.json({
+        ...saved,
+        debug: tracedResult.debug,
+      })
     } catch {
-      return NextResponse.json(result)
+      return NextResponse.json(tracedResult)
     }
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'search failed'

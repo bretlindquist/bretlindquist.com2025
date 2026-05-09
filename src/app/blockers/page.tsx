@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Family = {
   id: string;
@@ -16,6 +16,7 @@ type Family = {
 };
 type BoardState = Record<string, string[]>;
 type Selected = { name: string; familyId: string } | null;
+type ModalTab = "move" | "matrix" | "create";
 
 type DynamicFamily = { id: string; label: string; color: string; icon: string };
 
@@ -225,11 +226,9 @@ export default function BlockersPage() {
     }
   });
 
-  const [selected, setSelected] = useState<Selected>(null);
-  const [longPressTarget, setLongPressTarget] = useState<Selected>(null);
+  const [modalTarget, setModalTarget] = useState<Selected>(null);
+  const [modalTab, setModalTab] = useState<ModalTab>("move");
   const [newFamilyName, setNewFamilyName] = useState("");
-
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const renderFamilies = useMemo<DynamicFamily[]>(() => {
     const base = BASE_FAMILIES.map(({ id, label, color, icon }) => ({ id, label, color, icon }));
@@ -240,24 +239,23 @@ export default function BlockersPage() {
     return Object.fromEntries(BASE_FAMILIES.map((family) => [family.id, family])) as Record<string, Family>;
   }, []);
 
-  const currentModalFamily = longPressTarget ? renderFamilies.find((family) => family.id === longPressTarget.familyId) ?? null : null;
-  const currentModalBaseFamily = longPressTarget ? familyMeta[longPressTarget.familyId] ?? null : null;
+  const currentModalFamily = modalTarget ? renderFamilies.find((family) => family.id === modalTarget.familyId) ?? null : null;
+  const currentModalBaseFamily = modalTarget ? familyMeta[modalTarget.familyId] ?? null : null;
   const suggestedFamilies = useMemo(() => {
-    if (!longPressTarget) return [];
-    return inferSuggestedFamilyIds(longPressTarget.name, longPressTarget.familyId)
+    if (!modalTarget) return [];
+    return inferSuggestedFamilyIds(modalTarget.name, modalTarget.familyId)
       .map((familyId) => renderFamilies.find((family) => family.id === familyId))
       .filter((family): family is DynamicFamily => Boolean(family));
-  }, [longPressTarget, renderFamilies]);
+  }, [modalTarget, renderFamilies]);
 
   const total = useMemo(() => Object.values(board).reduce((sum, list) => sum + list.length, 0), [board]);
 
   useEffect(() => {
-    if (!longPressTarget) return;
+    if (!modalTarget) return;
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setLongPressTarget(null);
-        setSelected(null);
+        setModalTarget(null);
       }
     };
 
@@ -268,7 +266,7 @@ export default function BlockersPage() {
       window.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = "";
     };
-  }, [longPressTarget]);
+  }, [modalTarget]);
 
   const persist = (next: BoardState, nextCustom?: DynamicFamily[]) => {
     setBoard(next);
@@ -289,77 +287,40 @@ export default function BlockersPage() {
     persist(next);
   };
 
-  const swapWithinFamily = (familyId: string, a: string, b: string) => {
-    const list = [...(board[familyId] || [])];
-    const ia = list.indexOf(a);
-    const ib = list.indexOf(b);
-    if (ia < 0 || ib < 0 || ia === ib) return;
-    [list[ia], list[ib]] = [list[ib], list[ia]];
-    persist({ ...board, [familyId]: list });
+  const openModal = (name: string, familyId: string) => {
+    setNewFamilyName("");
+    setModalTab("move");
+    setModalTarget({ name, familyId });
   };
 
-  const onCardTap = (name: string, familyId: string) => {
-    if (!selected) {
-      setSelected({ name, familyId });
-      return;
-    }
-
-    if (selected.name === name && selected.familyId === familyId) {
-      setSelected(null);
-      return;
-    }
-
-    if (selected.familyId === familyId) {
-      swapWithinFamily(familyId, selected.name, name);
-    } else {
-      const targetIndex = (board[familyId] || []).indexOf(name);
-      move(selected.name, selected.familyId, familyId, targetIndex >= 0 ? targetIndex : undefined);
-    }
-
-    setSelected(null);
-  };
-
-  const startLongPress = (name: string, familyId: string) => {
-    clearLongPress();
-    longPressTimer.current = setTimeout(() => {
-      setLongPressTarget({ name, familyId });
-      setSelected({ name, familyId });
-    }, 500);
-  };
-
-  const clearLongPress = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
+  const closeModal = () => {
+    setModalTarget(null);
+    setModalTab("move");
   };
 
   const moveFromModal = (targetFamilyId: string) => {
-    if (!longPressTarget) return;
-    move(longPressTarget.name, longPressTarget.familyId, targetFamilyId);
-    setLongPressTarget(null);
-    setSelected(null);
+    if (!modalTarget) return;
+    move(modalTarget.name, modalTarget.familyId, targetFamilyId);
+    setModalTarget(null);
   };
 
   const createFamilyAndMove = () => {
     const label = newFamilyName.trim();
-    if (!label || !longPressTarget) return;
+    if (!label || !modalTarget) return;
     const id = `custom_${label.toLowerCase().replace(/[^a-z0-9]+/g, "_")}_${Date.now().toString(36)}`;
     const fam: DynamicFamily = { id, label, color: "from-emerald-500/30 to-cyan-600/30", icon: "🗂️" };
     const nextCustom = [...customFamilies, fam];
     const nextBoard: BoardState = { ...board, [id]: [] };
-    nextBoard[longPressTarget.familyId] = (nextBoard[longPressTarget.familyId] || []).filter((b) => b !== longPressTarget.name);
-    nextBoard[id].push(longPressTarget.name);
+    nextBoard[modalTarget.familyId] = (nextBoard[modalTarget.familyId] || []).filter((b) => b !== modalTarget.name);
+    nextBoard[id].push(modalTarget.name);
     persist(nextBoard, nextCustom);
     setNewFamilyName("");
-    setLongPressTarget(null);
-    setSelected(null);
+    setModalTarget(null);
   };
 
   const reset = () => {
     const base = initialBoardState();
-    setSelected(null);
-    setLongPressTarget(null);
+    setModalTarget(null);
     persist(base, []);
   };
 
@@ -369,7 +330,7 @@ export default function BlockersPage() {
         <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
           <div>
             <h1 className="text-2xl font-bold">Blocker Progression Board</h1>
-            <p className="text-sm text-zinc-400">Tap to select, tap another to reorganize. Long press for category menu.</p>
+            <p className="text-sm text-zinc-400">Click any blocker to reclassify it. The sheet opens with recommended families first, then the full taxonomy.</p>
           </div>
           <div className="flex gap-2">
             <button className="px-3 py-2 rounded bg-zinc-800 hover:bg-zinc-700 text-sm" onClick={() => navigator.clipboard.writeText(JSON.stringify(board, null, 2))}>Copy JSON</button>
@@ -389,22 +350,15 @@ export default function BlockersPage() {
 
               <div className="grid grid-cols-2 gap-2 min-h-20">
                 {(board[family.id] || []).map((name) => {
-                  const isSelected = selected?.name === name && selected?.familyId === family.id;
+                  const isSelected = modalTarget?.name === name && modalTarget?.familyId === family.id;
                   return (
                     <article
                       key={`${family.id}-${name}`}
-                      onClick={() => onCardTap(name, family.id)}
-                      onMouseDown={() => startLongPress(name, family.id)}
-                      onMouseUp={clearLongPress}
-                      onMouseLeave={clearLongPress}
-                      onTouchStart={() => startLongPress(name, family.id)}
-                      onTouchEnd={clearLongPress}
-                      onContextMenu={(e) => e.preventDefault()}
-                      className={`rounded-lg border border-zinc-700 bg-zinc-800 p-2 cursor-pointer select-none ${isSelected ? "ring-2 ring-blue-400" : ""}`}
-                      style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
+                      onClick={() => openModal(name, family.id)}
+                      className={`group rounded-lg border border-zinc-700 bg-zinc-800 p-2 cursor-pointer transition hover:-translate-y-0.5 hover:border-cyan-400/50 hover:bg-zinc-800/95 ${isSelected ? "ring-2 ring-cyan-400" : ""}`}
                     >
                       <div className="flex flex-col gap-2">
-                        <div className="aspect-square rounded-md overflow-hidden bg-zinc-700/40" style={{ WebkitTouchCallout: "none" }}>
+                        <div className="aspect-square rounded-md overflow-hidden bg-zinc-700/40">
                           <Image
                             src={imageFor(name)}
                             alt={name}
@@ -413,11 +367,15 @@ export default function BlockersPage() {
                             draggable={false}
                             onDragStart={(e) => e.preventDefault()}
                             onContextMenu={(e) => e.preventDefault()}
-                            className="w-full h-full object-cover pointer-events-none"
-                            style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
+                            className="pointer-events-none h-full w-full object-cover transition duration-200 group-hover:scale-[1.02]"
                           />
                         </div>
-                        <p className="text-xs leading-tight line-clamp-2">{name}</p>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs leading-tight line-clamp-2">{name}</p>
+                          <span className="rounded-full border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-zinc-400 transition group-hover:border-cyan-400/40 group-hover:text-cyan-200">
+                            Move
+                          </span>
+                        </div>
                       </div>
                     </article>
                   );
@@ -428,106 +386,97 @@ export default function BlockersPage() {
         </div>
       </div>
 
-      {longPressTarget && (
+      {modalTarget && (
         <div
           className="fixed inset-0 z-50 bg-black/65 backdrop-blur-sm"
-          onClick={() => {
-            setLongPressTarget(null);
-            setSelected(null);
-          }}
+          onClick={closeModal}
         >
           <div className="absolute inset-x-0 bottom-0 flex justify-center p-3 md:p-5">
             <div
-              className="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-[2rem] border border-zinc-700/80 bg-zinc-950/95 shadow-2xl shadow-black/40"
+              className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-[2rem] border border-zinc-700/80 bg-zinc-950/95 shadow-2xl shadow-black/40"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="mx-auto mt-3 h-1.5 w-20 rounded-full bg-zinc-700/80" />
 
-              <div className="grid min-h-0 gap-6 overflow-y-auto overflow-x-hidden p-5 md:grid-cols-[300px_minmax(0,1fr)] md:p-7">
-                <section className="space-y-4 md:sticky md:top-0 md:self-start">
-                  <div className="overflow-hidden rounded-[1.5rem] border border-zinc-800 bg-zinc-900/90">
-                    <div className="aspect-square bg-zinc-900">
-                      <Image
-                        src={imageFor(longPressTarget.name)}
-                        alt={longPressTarget.name}
-                        width={512}
-                        height={512}
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-
-                    <div className="space-y-3 p-4">
-                      <div>
-                        <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Selected blocker</p>
-                        <h3 className="mt-1 text-xl font-semibold text-zinc-100">{longPressTarget.name}</h3>
+              <div className="flex min-h-0 flex-col overflow-y-auto overflow-x-hidden p-5 md:p-7">
+                <section className="rounded-[1.5rem] border border-zinc-800 bg-zinc-950/95 px-4 py-4">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="flex items-start gap-4">
+                      <div className="h-24 w-24 overflow-hidden rounded-[1.2rem] border border-zinc-800 bg-zinc-900">
+                        <Image
+                          src={imageFor(modalTarget.name)}
+                          alt={modalTarget.name}
+                          width={256}
+                          height={256}
+                          className="h-full w-full object-cover"
+                        />
                       </div>
 
-                      <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-3">
-                        <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Current family</p>
-                        <div className="mt-2 flex items-start gap-3">
-                          <span className="text-2xl">{currentModalFamily?.icon ?? "🗂️"}</span>
-                          <div>
-                            <p className="font-medium text-zinc-100">{currentModalFamily?.label ?? "Custom family"}</p>
-                            <p className="mt-1 text-sm leading-6 text-zinc-400">
-                              {currentModalBaseFamily?.summary ?? "Use custom families for experiments, theme packs, or one-off blocker buckets."}
-                            </p>
-                          </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] uppercase tracking-[0.22em] text-cyan-300">Reclassify blocker</p>
+                        <h2 className="mt-1 text-2xl font-semibold text-zinc-50">{modalTarget.name}</h2>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <span className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-300">
+                            Current: {currentModalFamily?.icon ?? "🗂️"} {currentModalFamily?.label ?? "Custom family"}
+                          </span>
+                          <span className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-300">
+                            {currentModalBaseFamily?.summary ?? "Custom grouping for one-off experiments or edge cases."}
+                          </span>
                         </div>
                       </div>
-
-                      <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-3">
-                        <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Decision flow</p>
-                        <ul className="mt-2 space-y-2 text-sm leading-6 text-zinc-300">
-                          <li>1. Start with the suggested destinations if one clearly matches the mechanic.</li>
-                          <li>2. Use the full family grid when the fit is more about progression logic than theme words.</li>
-                          <li>3. Create a new family only if the matrix genuinely has a taxonomy gap.</li>
-                        </ul>
-                      </div>
                     </div>
+
+                    <button
+                      className="rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-zinc-300 transition hover:border-zinc-500 hover:text-white"
+                      onClick={closeModal}
+                    >
+                      Close
+                    </button>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {([
+                      ["move", "Move"],
+                      ["matrix", "Matrix"],
+                      ["create", "New Family"],
+                    ] as Array<[ModalTab, string]>).map(([tabId, label]) => {
+                      const isActive = modalTab === tabId;
+                      return (
+                        <button
+                          key={tabId}
+                          className={`rounded-full border px-4 py-2 text-sm transition ${
+                            isActive
+                              ? "border-cyan-400/50 bg-cyan-500/12 text-cyan-100"
+                              : "border-zinc-700 bg-zinc-900 text-zinc-400 hover:border-zinc-500 hover:text-zinc-100"
+                          }`}
+                          onClick={() => setModalTab(tabId)}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
                   </div>
                 </section>
 
-                <section className="space-y-5">
-                  <div className="sticky top-0 z-10 -mx-1 rounded-[1.5rem] border border-zinc-800 bg-zinc-950/95 px-4 py-4 backdrop-blur">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-[11px] uppercase tracking-[0.22em] text-cyan-300">Reclassify blocker</p>
-                        <h2 className="mt-1 text-2xl font-semibold text-zinc-50">Bottom-sheet move matrix</h2>
-                        <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
-                          Move the blocker fast first, then use the matrix to confirm whether it belongs in an existing family or truly needs a new one.
-                        </p>
-                      </div>
+                <section className="mt-5">
+                  {modalTab === "move" ? (
+                    <div className="space-y-5">
+                      <div className="rounded-[1.5rem] border border-zinc-800 bg-zinc-900/80 p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Fast route</p>
+                            <p className="mt-1 text-sm text-zinc-300">Start with the most likely fits. Most moves should finish here.</p>
+                          </div>
+                          <div className="flex flex-wrap gap-2 text-[11px] text-zinc-300">
+                            <span className="rounded-full border border-zinc-700 bg-zinc-950 px-3 py-1.5">Reuse a family when the mechanic matches</span>
+                            <span className="rounded-full border border-zinc-700 bg-zinc-950 px-3 py-1.5">Open Matrix only if classification is still unclear</span>
+                          </div>
+                        </div>
 
-                      <button
-                        className="rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-zinc-300 transition hover:border-zinc-500 hover:text-white"
-                        onClick={() => {
-                          setLongPressTarget(null);
-                          setSelected(null);
-                        }}
-                      >
-                        Close
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="rounded-[1.5rem] border border-zinc-800 bg-zinc-900/80 p-4">
-                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Quick routing</p>
-                        <p className="mt-1 text-sm text-zinc-400">Most blocker moves should resolve here before you ever need the full matrix.</p>
-                      </div>
-                      <div className="flex flex-wrap gap-2 text-[11px] text-zinc-300">
-                        <span className="rounded-full border border-zinc-700 bg-zinc-950 px-3 py-1.5">Use existing family if the mechanic matches</span>
-                        <span className="rounded-full border border-zinc-700 bg-zinc-950 px-3 py-1.5">Create new only for missing taxonomy</span>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(260px,0.85fr)]">
-                      <div className="space-y-3">
-                        <div className="grid gap-3 xl:grid-cols-3">
+                        <div className="mt-4 grid gap-3 lg:grid-cols-3">
                           {suggestedFamilies.map((family, index) => {
                             const familyDetails = familyMeta[family.id];
-                            const isCurrent = family.id === longPressTarget.familyId;
+                            const isCurrent = family.id === modalTarget.familyId;
 
                             return (
                               <button
@@ -571,114 +520,108 @@ export default function BlockersPage() {
                             );
                           })}
                         </div>
+                      </div>
 
-                        <div className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4">
-                          <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Current assignment</p>
-                          <div className="mt-2 flex items-start gap-3">
-                            <span className="text-2xl">{currentModalFamily?.icon ?? "🗂️"}</span>
-                            <div>
-                              <p className="font-medium text-zinc-100">{currentModalFamily?.label ?? "Custom family"}</p>
-                              <p className="mt-1 text-sm leading-6 text-zinc-400">
-                                {currentModalBaseFamily?.summary ?? "This blocker currently lives in a custom bucket."}
-                              </p>
-                            </div>
+                      <div className="rounded-[1.5rem] border border-zinc-800 bg-zinc-900/80 p-4">
+                        <div className="mb-4 flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">All families</p>
+                            <p className="mt-1 text-sm text-zinc-400">Everything stays reachable here, but this should scan quickly.</p>
                           </div>
+                          <p className="text-xs text-zinc-500">{renderFamilies.length} available families</p>
+                        </div>
+
+                        <div className="space-y-2">
+                          {renderFamilies.map((family) => {
+                            const familyCount = (board[family.id] || []).length;
+                            const isCurrent = family.id === modalTarget.familyId;
+                            const familyDetails = familyMeta[family.id];
+
+                            return (
+                              <button
+                                key={`move-${family.id}`}
+                                className={`flex w-full items-start justify-between gap-4 rounded-[1.25rem] border px-4 py-4 text-left transition ${
+                                  isCurrent
+                                    ? "border-cyan-400/40 bg-cyan-500/10 shadow-lg shadow-cyan-950/20"
+                                    : "border-zinc-800 bg-zinc-950/70 hover:border-zinc-600 hover:bg-zinc-900"
+                                }`}
+                                onClick={() => moveFromModal(family.id)}
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="text-lg">{family.icon}</span>
+                                    <p className="font-medium text-zinc-100">{family.label}</p>
+                                    <span className="rounded-full border border-zinc-700 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-400">
+                                      {familyCount} items
+                                    </span>
+                                  </div>
+
+                                  <p className="mt-2 text-sm leading-6 text-zinc-400">
+                                    {familyDetails?.summary ?? "Custom family for special-case blocker experiments."}
+                                  </p>
+
+                                  <div className="mt-3 flex flex-wrap gap-2">
+                                    {(familyDetails?.useCases ?? ["Custom grouping", "Experimental category"]).slice(0, 3).map((item) => (
+                                      <span key={`${family.id}-${item}`} className="rounded-full bg-zinc-900 px-2.5 py-1 text-[11px] text-zinc-300">
+                                        {item}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                <div className="shrink-0 text-right">
+                                  {isCurrent ? (
+                                    <p className="text-xs uppercase tracking-[0.18em] text-cyan-300">Current</p>
+                                  ) : (
+                                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Move here</p>
+                                  )}
+                                  {familyDetails?.avoidWhen ? (
+                                    <p className="mt-3 max-w-[14rem] text-xs leading-5 text-zinc-500">
+                                      <span className="uppercase tracking-[0.18em] text-zinc-600">Avoid</span>{" "}
+                                      {familyDetails.avoidWhen}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
-
-                      <div className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4">
-                        <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Decision checklist</p>
-                        <ul className="mt-2 space-y-2 text-sm leading-6 text-zinc-300">
-                          <li>• Same mechanic, different skin: move into the closest existing family.</li>
-                          <li>• New break cadence or interaction model: consider a new family.</li>
-                          <li>• Theme-only disagreement: keep the taxonomy stable and reuse the family.</li>
-                          <li>• Still unsure: compare the “avoid when” notes in the matrix below.</li>
-                        </ul>
-                      </div>
                     </div>
-                  </div>
+                  ) : null}
 
-                  <div className="rounded-[1.5rem] border border-zinc-800 bg-zinc-900/80 p-4">
-                    <div className="mb-4 flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Move to family</p>
-                        <p className="mt-1 text-sm text-zinc-400">Tap a destination family. Existing categories stay fast; custom categories stay possible.</p>
-                      </div>
-                      <p className="text-xs text-zinc-500">{renderFamilies.length} available families</p>
-                    </div>
-
-                    <div className="grid gap-3 xl:grid-cols-2">
-                      {renderFamilies.map((family) => {
-                        const familyCount = (board[family.id] || []).length;
-                        const isCurrent = family.id === longPressTarget.familyId;
-                        const familyDetails = familyMeta[family.id];
-
-                        return (
-                          <button
-                            key={`move-${family.id}`}
-                            className={`rounded-[1.25rem] border px-4 py-4 text-left transition ${
-                              isCurrent
-                                ? "border-cyan-400/40 bg-cyan-500/10 shadow-lg shadow-cyan-950/20"
-                                : "border-zinc-800 bg-zinc-950/70 hover:-translate-y-0.5 hover:border-zinc-600 hover:bg-zinc-900"
-                            }`}
-                            onClick={() => moveFromModal(family.id)}
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <p className="text-lg">{family.icon}</p>
-                                <p className="mt-2 font-medium text-zinc-100">{family.label}</p>
-                              </div>
-                              <span className="rounded-full border border-zinc-700 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-400">
-                                {familyCount} items
-                              </span>
-                            </div>
-
-                            <p className="mt-3 min-h-[72px] text-sm leading-6 text-zinc-400">
-                              {familyDetails?.summary ?? "Custom family for special-case blocker experiments."}
-                            </p>
-
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {(familyDetails?.useCases ?? ["Custom grouping", "Experimental category"]).map((item) => (
-                                <span key={`${family.id}-${item}`} className="rounded-full bg-zinc-900 px-2.5 py-1 text-[11px] text-zinc-300">
-                                  {item}
-                                </span>
-                              ))}
-                            </div>
-
-                            {familyDetails?.avoidWhen ? (
-                              <p className="mt-3 text-xs leading-5 text-zinc-500">
-                                <span className="uppercase tracking-[0.18em] text-zinc-600">Avoid when</span>{" "}
-                                {familyDetails.avoidWhen}
-                              </p>
-                            ) : null}
-
-                            {isCurrent ? (
-                              <p className="mt-4 text-xs uppercase tracking-[0.18em] text-cyan-300">Current family</p>
-                            ) : (
-                              <p className="mt-4 text-xs uppercase tracking-[0.18em] text-zinc-500">Move here</p>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
+                  {modalTab === "matrix" ? (
                     <div className="rounded-[1.5rem] border border-zinc-800 bg-zinc-900/80 p-4">
-                      <div className="mb-4">
-                        <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Use-case matrix</p>
-                        <p className="mt-1 text-sm text-zinc-400">All current board families and the use cases they cover.</p>
+                      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Use-case matrix</p>
+                          <p className="mt-1 text-sm text-zinc-400">Reference mode. Use this when two families still feel plausible.</p>
+                        </div>
+                        <button
+                          className="rounded-full border border-zinc-700 bg-zinc-950 px-4 py-2 text-sm text-zinc-300 transition hover:border-zinc-500 hover:text-white"
+                          onClick={() => setModalTab("move")}
+                        >
+                          Back to move
+                        </button>
                       </div>
 
                       <div className="grid gap-3 lg:grid-cols-2">
                         {BASE_FAMILIES.map((family) => (
                           <div key={`matrix-${family.id}`} className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4">
-                            <div className="flex items-start gap-3">
-                              <span className="text-xl">{family.icon}</span>
-                              <div>
-                                <p className="font-medium text-zinc-100">{family.label}</p>
-                                <p className="mt-1 text-sm leading-6 text-zinc-400">{family.summary}</p>
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-start gap-3">
+                                <span className="text-xl">{family.icon}</span>
+                                <div>
+                                  <p className="font-medium text-zinc-100">{family.label}</p>
+                                  <p className="mt-1 text-sm leading-6 text-zinc-400">{family.summary}</p>
+                                </div>
                               </div>
+                              <button
+                                className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-300 transition hover:border-zinc-500 hover:text-white"
+                                onClick={() => moveFromModal(family.id)}
+                              >
+                                {family.id === modalTarget.familyId ? "Current" : "Move here"}
+                              </button>
                             </div>
 
                             <div className="mt-3 flex flex-wrap gap-2">
@@ -707,44 +650,57 @@ export default function BlockersPage() {
                         ))}
                       </div>
                     </div>
+                  ) : null}
 
-                    <div className="rounded-[1.5rem] border border-zinc-800 bg-zinc-900/80 p-4">
-                      <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Create new family</p>
-                      <p className="mt-1 text-sm leading-6 text-zinc-400">
-                        Add a new family only when the blocker genuinely introduces a missing taxonomy, not just a visual variant of an existing one.
-                      </p>
+                  {modalTab === "create" ? (
+                    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+                      <div className="rounded-[1.5rem] border border-zinc-800 bg-zinc-900/80 p-4">
+                        <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Create new family</p>
+                        <p className="mt-2 text-sm leading-6 text-zinc-300">
+                          This is intentionally secondary. Only do it when the blocker truly introduces a missing mechanic family.
+                        </p>
 
-                      <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/70 p-3">
-                        <p className="text-sm font-medium text-zinc-100">Good reasons to create one</p>
-                        <ul className="mt-2 space-y-2 text-sm leading-6 text-zinc-300">
-                          <li>• It introduces a mechanic family not covered by the current matrix.</li>
-                          <li>• It needs a distinct progression logic, not just a new material skin.</li>
-                          <li>• It represents a recurring theme pack you expect to reuse.</li>
-                        </ul>
+                        <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4">
+                          <p className="text-sm font-medium text-zinc-100">Good reasons to create one</p>
+                          <ul className="mt-2 space-y-2 text-sm leading-6 text-zinc-300">
+                            <li>• It introduces a mechanic family not covered by the current matrix.</li>
+                            <li>• It needs a distinct progression logic, not just a new material skin.</li>
+                            <li>• It represents a recurring theme pack you expect to reuse.</li>
+                          </ul>
+                        </div>
+
+                        <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4">
+                          <p className="text-sm font-medium text-zinc-100">Do not create one just because…</p>
+                          <ul className="mt-2 space-y-2 text-sm leading-6 text-zinc-300">
+                            <li>• The art style changed but the progression logic stayed the same.</li>
+                            <li>• The blocker is a variant of an existing shell, fog, lock, goo, or terrain family.</li>
+                            <li>• You have not checked the Matrix tab yet.</li>
+                          </ul>
+                        </div>
                       </div>
 
-                      <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/70 p-3">
-                        <p className="text-sm font-medium text-zinc-100">Do not create one just because…</p>
-                        <ul className="mt-2 space-y-2 text-sm leading-6 text-zinc-300">
-                          <li>• The art style changed but the progression logic stayed the same.</li>
-                          <li>• The blocker is a variant of an existing shell, fog, lock, or terrain family.</li>
-                          <li>• You have not compared it against the use-case matrix yet.</li>
-                        </ul>
-                      </div>
-
-                      <div className="mt-4 flex gap-2">
-                        <input
-                          value={newFamilyName}
-                          onChange={(e) => setNewFamilyName(e.target.value)}
-                          placeholder="New category name"
-                          className="flex-1 rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 outline-none transition focus:border-cyan-400/60"
-                        />
-                        <button className="rounded-xl bg-emerald-700 px-4 py-3 text-sm font-medium transition hover:bg-emerald-600" onClick={createFamilyAndMove}>
-                          Create
-                        </button>
+                      <div className="rounded-[1.5rem] border border-zinc-800 bg-zinc-900/80 p-4">
+                        <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">New category name</p>
+                        <div className="mt-4 space-y-3">
+                          <input
+                            value={newFamilyName}
+                            onChange={(e) => setNewFamilyName(e.target.value)}
+                            placeholder="New category name"
+                            className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 outline-none transition focus:border-cyan-400/60"
+                          />
+                          <button className="w-full rounded-xl bg-emerald-700 px-4 py-3 text-sm font-medium transition hover:bg-emerald-600" onClick={createFamilyAndMove}>
+                            Create family and move blocker
+                          </button>
+                          <button
+                            className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-300 transition hover:border-zinc-500 hover:text-white"
+                            onClick={() => setModalTab("matrix")}
+                          >
+                            Review matrix first
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  ) : null}
                 </section>
               </div>
             </div>

@@ -1,14 +1,20 @@
+import { execFile } from 'node:child_process'
+import https from 'node:https'
+import { promisify } from 'node:util'
 import type { SearchResult } from '../../music/types.ts'
 
 const API_KEY = process.env.YOUTUBE_DATA_API_KEY || process.env.youtube_data_api_v3 || ''
+const execFileAsync = promisify(execFile)
 
 type SearchItem = {
-  id?: { videoId?: string }
+  id?: { kind?: string; videoId?: string; playlistId?: string }
   snippet?: { title?: string; channelTitle?: string }
 }
 
 type Candidate = {
-  videoId: string
+  kind: 'video' | 'playlist'
+  videoId?: string
+  playlistId?: string
   title: string
   channel: string
   url: string
@@ -30,6 +36,7 @@ const POSITIVE_PHRASES = [
 const NEGATIVE_PHRASES = [
   'reaction',
   'review',
+  'album review',
   'analysis',
   'explained',
   'lyrics',
@@ -44,6 +51,41 @@ const NEGATIVE_PHRASES = [
   'recap',
   'podcast',
   'interview',
+  'last album',
+  'first time hearing',
+  'my first time hearing',
+  'hearing',
+  'droned',
+  'tease',
+  'preview',
+  'slowed',
+  'reverb',
+  '8d',
+  'fan edit',
+  'tribute',
+  'remix',
+]
+
+const HARD_REJECT_PHRASES = [
+  'album review',
+  'track review',
+  'ending explained',
+  'first reaction',
+  'full reaction',
+  'first time hearing',
+  'my first time hearing',
+  'tease',
+  'full album tease',
+  'droned',
+]
+
+const TRUSTED_CHANNEL_HINTS = [
+  'topic',
+  'records',
+  'recordings',
+  'music',
+  'official',
+  'vevo',
 ]
 
 function normalize(value: string) {
@@ -78,12 +120,23 @@ function scoreCandidate(item: Candidate, artist: string, album: string) {
 
   if (albumText && title.includes(albumText)) score += 7
   score += countMatches(title, albumTokens) * 1.25
+  if (albumTokens.length && !title.includes(albumText) && countMatches(title, albumTokens) < Math.min(2, albumTokens.length)) {
+    score -= 10
+  }
 
+  if (artistText && albumText && title.includes(`${artistText} ${albumText}`)) score += 4
+  if (artistText && albumText && title.startsWith(`${artistText} ${albumText}`)) score += 3
+
+  if (item.kind === 'playlist') score += 6
   if (channel.endsWith(' topic')) score += 2
+  if (TRUSTED_CHANNEL_HINTS.some((hint) => channel.includes(hint))) score += 1.25
 
   for (const phrase of POSITIVE_PHRASES) {
     if (title.includes(phrase) || channel.includes(phrase)) score += 1.5
   }
+
+  if (title.includes('full album')) score += 4
+  if (title.includes('official video') && albumTokens.length > 1) score -= 3
 
   for (const phrase of NEGATIVE_PHRASES) {
     if (title.includes(phrase)) score -= 4
@@ -91,8 +144,35 @@ function scoreCandidate(item: Candidate, artist: string, album: string) {
   }
 
   if (title.includes('official') && channel.includes(artistText)) score += 2
+  if (title.includes('?')) score -= 3
 
   return score
+}
+
+function candidateText(title: string, channel: string) {
+  return `${normalize(title)} ${normalize(channel)}`.trim()
+}
+
+function isLikelyBadMatchTitle(title: string, channel = '') {
+  const text = candidateText(title, channel)
+  return HARD_REJECT_PHRASES.some((phrase) => text.includes(phrase))
+}
+
+function buildWatchUrl(candidate: Pick<Candidate, 'kind' | 'videoId' | 'playlistId'>) {
+  if (candidate.kind === 'playlist' && candidate.playlistId) {
+    return `https://www.youtube.com/playlist?list=${candidate.playlistId}`
+  }
+
+  return `https://www.youtube.com/watch?v=${candidate.videoId}`
+}
+
+function buildEmbedUrl(candidate: Pick<Candidate, 'kind' | 'videoId' | 'playlistId'>) {
+  const origin = encodeURIComponent(process.env.NEXT_PUBLIC_SITE_ORIGIN || 'http://localhost:3000')
+  if (candidate.kind === 'playlist' && candidate.playlistId) {
+    return `https://www.youtube.com/embed/videoseries?list=${candidate.playlistId}&autoplay=1&playsinline=1&origin=${origin}`
+  }
+
+  return `https://www.youtube.com/embed/${candidate.videoId}?autoplay=1&playsinline=1&origin=${origin}`
 }
 
 async function fetchSearch(query: string) {
@@ -100,39 +180,97 @@ async function fetchSearch(query: string) {
 
   const params = new URLSearchParams({
     part: 'snippet',
-    type: 'video',
-    maxResults: '8',
+    maxResults: '10',
     q: query,
-    videoEmbeddable: 'true',
-    videoSyndicated: 'true',
     key: API_KEY,
   })
 
   const url = `https://www.googleapis.com/youtube/v3/search?${params.toString()}`
-  const response = await fetch(url, { cache: 'no-store' })
-
-  if (!response.ok) {
-    const text = await response.text()
-    throw new Error(`YouTube API ${response.status}: ${text.slice(0, 180)}`)
+  const data = await readJsonWithFallback(url) as { items?: SearchItem[]; error?: { code?: number; message?: string } }
+  if (data?.error?.code) {
+    throw new Error(`YouTube API ${data.error.code}: ${(data.error.message || 'request failed').slice(0, 180)}`)
   }
-
-  const data = await response.json() as { items?: SearchItem[] }
   return Array.isArray(data?.items) ? data.items : []
 }
 
-function buildCandidates(items: SearchItem[]) {
+function readJson(url: string) {
+  return new Promise<unknown>((resolve, reject) => {
+    const req = https.get(url, (res) => {
+      const statusCode = res.statusCode || 0
+      let body = ''
+
+      res.setEncoding('utf8')
+      res.on('data', (chunk) => {
+        body += chunk
+      })
+      res.on('end', () => {
+        if (statusCode < 200 || statusCode >= 300) {
+          reject(new Error(`YouTube API ${statusCode}: ${body.slice(0, 180)}`))
+          return
+        }
+
+        try {
+          resolve(JSON.parse(body))
+        } catch (error) {
+          reject(new Error(`YouTube response parse failed: ${error instanceof Error ? error.message : 'unknown error'}`))
+        }
+      })
+    })
+
+    req.on('error', reject)
+    req.setTimeout(15000, () => {
+      req.destroy(new Error('YouTube request timed out'))
+    })
+  })
+}
+
+async function readJsonWithFallback(url: string) {
+  try {
+    return await readJson(url)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error || '')
+    const code = typeof error === 'object' && error && 'code' in error ? String((error as { code?: string }).code || '') : ''
+
+    if (!message.includes('EBADF') && code !== 'EBADF') {
+      throw error
+    }
+
+    const { stdout } = await execFileAsync('curl', ['-fsSL', url], {
+      timeout: 15000,
+      maxBuffer: 2 * 1024 * 1024,
+    })
+
+    return JSON.parse(stdout)
+  }
+}
+
+function buildCandidates(items: SearchItem[]): Candidate[] {
   return items
-    .map((item) => {
+    .map((item): Candidate | null => {
+      const kind: Candidate['kind'] | null = item?.id?.kind === 'youtube#playlist'
+        ? 'playlist'
+        : item?.id?.kind === 'youtube#video'
+          ? 'video'
+          : null
       const videoId = item?.id?.videoId
-      if (!videoId) return null
+      const playlistId = item?.id?.playlistId
+      if (!kind) return null
+      if (kind === 'video' && !videoId) return null
+      if (kind === 'playlist' && !playlistId) return null
+
+      const baseCandidate = {
+        kind,
+        videoId,
+        playlistId,
+        title: item.snippet?.title || 'Untitled result',
+        channel: item.snippet?.channelTitle || '',
+        score: 0,
+      }
 
       return {
-        videoId,
-        title: item.snippet?.title || 'Untitled video',
-        channel: item.snippet?.channelTitle || '',
-        url: `https://www.youtube.com/watch?v=${videoId}`,
-        embedUrl: `https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1`,
-        score: 0,
+        ...baseCandidate,
+        url: buildWatchUrl(baseCandidate),
+        embedUrl: buildEmbedUrl(baseCandidate),
       } satisfies Candidate
     })
     .filter((candidate): candidate is Candidate => !!candidate)
@@ -148,11 +286,12 @@ function rankCandidates(candidates: Candidate[], artist: string, album: string) 
 
   const top = ranked[0]
   const gap = top ? top.score - (ranked[1]?.score ?? -99) : 0
+  const topSuspicious = top ? isLikelyBadMatchTitle(top.title, top.channel) : false
   const confidence: SearchResult['confidence'] = !top
     ? 'low'
-    : top.score >= 18 && gap >= 3
+    : !topSuspicious && top.score >= 20 && gap >= 3
       ? 'high'
-      : top.score >= 12 && gap >= 1.5
+      : !topSuspicious && top.score >= 13 && gap >= 1.5
         ? 'medium'
         : 'low'
   const warning = confidence === 'low' ? 'Result confidence is low. Review alternate matches before trusting autoplay.' : null
@@ -173,33 +312,55 @@ export async function searchMusicMatch(args: { artist?: string; album?: string; 
   if (!baseQuery) throw new Error('query required')
 
   const initialItems = await fetchSearch(baseQuery)
-  let candidates = buildCandidates(initialItems)
-  let ranked = rankCandidates(candidates, artist || baseQuery, album)
+  const candidates = buildCandidates(initialItems)
+  const ranked = rankCandidates(candidates, artist || baseQuery, album)
 
-  if (ranked.confidence === 'low') {
-    const albumBiasedItems = await fetchSearch(`${baseQuery} full album`)
-    const merged = new Map<string, Candidate>()
-
-    for (const candidate of [...candidates, ...buildCandidates(albumBiasedItems)]) {
-      merged.set(candidate.videoId, candidate)
-    }
-
-    candidates = Array.from(merged.values())
-    ranked = rankCandidates(candidates, artist || baseQuery, album)
-  }
-
-  const best = ranked.ranked[0]
+  const best = ranked.ranked.find((candidate) => !isLikelyBadMatchTitle(candidate.title, candidate.channel)) || ranked.ranked[0]
   if (!best) throw new Error('no embeddable result')
 
   return {
     ok: true,
+    kind: best.kind,
     videoId: best.videoId,
+    playlistId: best.playlistId,
     title: best.title,
     channel: best.channel,
     url: best.url,
     embedUrl: best.embedUrl,
     confidence: ranked.confidence,
     warning: ranked.warning,
+    debug: {
+      server: {
+        provider: 'youtube-data',
+        resolverFallback: null,
+        notes: [`youtube-data query: ${baseQuery}`],
+        candidates: ranked.ranked.slice(0, 8).map((candidate) => ({
+          kind: candidate.kind,
+          title: candidate.title,
+          channel: candidate.channel,
+          score: candidate.score,
+          videoId: candidate.videoId,
+          playlistId: candidate.playlistId,
+        })),
+      },
+    },
     candidates: ranked.ranked.slice(0, 4),
   }
+}
+
+export function isLikelyUsableSearchResult(result: Pick<SearchResult, 'title' | 'channel'> & Partial<Pick<SearchResult, 'embedUrl'>>) {
+  if (result.embedUrl?.includes('127.0.0.1')) return false
+  return !isLikelyBadMatchTitle(result.title, result.channel)
+}
+
+export function isAlbumRelevantCandidate(args: { artist?: string; album?: string; title: string; channel?: string }) {
+  const album = String(args.album || '').trim()
+  if (!album) return true
+
+  const text = candidateText(args.title, args.channel || '')
+  const albumText = normalize(album)
+  const albumTokens = tokenize(album)
+
+  if (text.includes(albumText)) return true
+  return countMatches(text, albumTokens) >= Math.min(2, albumTokens.length)
 }

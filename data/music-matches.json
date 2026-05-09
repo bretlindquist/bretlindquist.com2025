@@ -1,1 +1,502 @@
-[]
+[
+  {
+    "key": "rosalia lux",
+    "artist": "Rosalía",
+    "album": "Lux",
+    "query": "Rosalía Lux",
+    "result": {
+      "ok": true,
+      "kind": "playlist",
+      "playlistId": "OLAK5uy_kqKSSUvhqlZJQUlvZzxdhm4fXg7mLtpVQ",
+      "title": "LUX",
+      "channel": "ROSALÍA",
+      "url": "https://www.youtube.com/playlist?list=OLAK5uy_kqKSSUvhqlZJQUlvZzxdhm4fXg7mLtpVQ",
+      "embedUrl": "https://www.youtube.com/embed/videoseries?list=OLAK5uy_kqKSSUvhqlZJQUlvZzxdhm4fXg7mLtpVQ&autoplay=1&playsinline=1&origin=http%3A%2F%2Flocalhost%3A3000",
+      "previewStrategy": "direct",
+      "confidence": "high",
+      "warning": null,
+      "audioPreview": {
+        "trackName": "Sexo, Violencia y Llantas",
+        "artistName": "ROSALÍA",
+        "collectionName": "LUX",
+        "previewUrl": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/a7/14/ab/a714ab97-9217-799f-e74e-92237322c17d/mzaf_4077304870581377108.plus.aac.p.m4a",
+        "artworkUrl100": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/95/ae/80/95ae8046-a6b9-e493-0def-5ae33d63f43a/196873722672.jpg/100x100bb.jpg",
+        "artworkUrl600": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/95/ae/80/95ae8046-a6b9-e493-0def-5ae33d63f43a/196873722672.jpg/600x600bb.jpg"
+      },
+      "candidates": [
+        {
+          "kind": "playlist",
+          "playlistId": "OLAK5uy_kqKSSUvhqlZJQUlvZzxdhm4fXg7mLtpVQ",
+          "title": "LUX",
+          "channel": "ROSALÍA",
+          "url": "https://www.youtube.com/playlist?list=OLAK5uy_kqKSSUvhqlZJQUlvZzxdhm4fXg7mLtpVQ",
+          "embedUrl": "https://www.youtube.com/embed/videoseries?list=OLAK5uy_kqKSSUvhqlZJQUlvZzxdhm4fXg7mLtpVQ&autoplay=1&playsinline=1&origin=http%3A%2F%2Flocalhost%3A3000",
+          "score": 100
+        },
+        {
+          "kind": "video",
+          "videoId": "xkU7h-4P3vc",
+          "title": "ROSALÍA - Sexo, Violencia y Llantas // Letra",
+          "channel": "BrunoTraductor Official",
+          "score": 27.75,
+          "url": "https://www.youtube.com/watch?v=xkU7h-4P3vc",
+          "embedUrl": "https://www.youtube.com/embed/xkU7h-4P3vc?autoplay=1&playsinline=1&origin=http%3A%2F%2Flocalhost%3A3000"
+        },
+        {
+          "kind": "video",
+          "videoId": "U2qzRYRw3J0",
+          "title": "ROSALÍA - Sexo, Violencia y Llantas",
+          "channel": "ROSALÍA - L U X",
+          "score": 27.75,
+          "url": "https://www.youtube.com/watch?v=U2qzRYRw3J0",
+          "embedUrl": "https://www.youtube.com/embed/U2qzRYRw3J0?autoplay=1&playsinline=1&origin=http%3A%2F%2Flocalhost%3A3000"
+        },
+        {
+          "kind": "video",
+          "videoId": "m6z1sW_qtyg",
+          "title": "ROSALÍA - Sexo, Violencia y Llantas (Official Lyric Video)",
+          "channel": "RosaliaVEVO",
+          "score": 27,
+          "url": "https://www.youtube.com/watch?v=m6z1sW_qtyg",
+          "embedUrl": "https://www.youtube.com/embed/m6z1sW_qtyg?autoplay=1&playsinline=1&origin=http%3A%2F%2Flocalhost%3A3000"
+        },
+        {
+          "kind": "video",
+          "videoId": "HI6idPsYbmM",
+          "title": "ROSALÍA - Sexo, Violencia y Llantas (Letra)",
+          "channel": "mcx subs",
+          "score": 26.5,
+          "url": "https://www.youtube.com/watch?v=HI6idPsYbmM",
+          "embedUrl": "https://www.youtube.com/embed/HI6idPsYbmM?autoplay=1&playsinline=1&origin=http%3A%2F%2Flocalhost%3A3000"
+        }
+      ]
+    },
+    "updatedAt": "2026-03-07T18:18:49.494Z"
+  },
+  {
+    "key": "tycho epoch",
+    "artist": "Tycho",
+    "album": "Epoch",
+    "query": "Tycho Epoch",
+    "result": {
+      "ok": true,
+      "kind": "playlist",
+      "playlistId": "OLAK5uy_mZX1c-0btSAWwa7HgW8uyURgT6WTvaj6I",
+      "title": "Epoch",
+      "channel": "Tycho",
+      "url": "https://www.youtube.com/playlist?list=OLAK5uy_mZX1c-0btSAWwa7HgW8uyURgT6WTvaj6I",
+      "embedUrl": "https://www.youtube.com/embed/videoseries?list=OLAK5uy_mZX1c-0btSAWwa7HgW8uyURgT6WTvaj6I&autoplay=1&playsinline=1&origin=http%3A%2F%2Flocalhost%3A3000",
+      "previewStrategy": "direct",
+      "confidence": "high",
+      "warning": null,
+      "audioPreview": {
+        "trackName": "Glider",
+        "artistName": "Tycho",
+        "collectionName": "Epoch",
+        "previewUrl": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview115/v4/10/79/a2/1079a2c0-625e-8b51-2480-02d84ddb83ce/mzaf_3646268649542122586.plus.aac.p.m4a",
+        "artworkUrl100": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/2f/9d/90/2f9d9063-02c9-ed2e-2fba-1bef5ddf8cd1/804297827926.jpg/100x100bb.jpg",
+        "artworkUrl600": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/2f/9d/90/2f9d9063-02c9-ed2e-2fba-1bef5ddf8cd1/804297827926.jpg/600x600bb.jpg"
+      },
+      "candidates": [
+        {
+          "kind": "playlist",
+          "playlistId": "OLAK5uy_mZX1c-0btSAWwa7HgW8uyURgT6WTvaj6I",
+          "title": "Epoch",
+          "channel": "Tycho",
+          "url": "https://www.youtube.com/playlist?list=OLAK5uy_mZX1c-0btSAWwa7HgW8uyURgT6WTvaj6I",
+          "embedUrl": "https://www.youtube.com/embed/videoseries?list=OLAK5uy_mZX1c-0btSAWwa7HgW8uyURgT6WTvaj6I&autoplay=1&playsinline=1&origin=http%3A%2F%2Flocalhost%3A3000",
+          "score": 100
+        },
+        {
+          "kind": "video",
+          "videoId": "yg_rZhpMuWA",
+          "title": "Tycho - Glider",
+          "channel": "Tycho",
+          "score": 24,
+          "url": "https://www.youtube.com/watch?v=yg_rZhpMuWA",
+          "embedUrl": "https://www.youtube.com/embed/yg_rZhpMuWA?autoplay=1&playsinline=1&origin=http%3A%2F%2Flocalhost%3A3000"
+        },
+        {
+          "kind": "video",
+          "videoId": "W3WOpPoQNa8",
+          "title": "Tycho - Glider",
+          "channel": "Ghostly International",
+          "score": 22.75,
+          "url": "https://www.youtube.com/watch?v=W3WOpPoQNa8",
+          "embedUrl": "https://www.youtube.com/embed/W3WOpPoQNa8?autoplay=1&playsinline=1&origin=http%3A%2F%2Flocalhost%3A3000"
+        },
+        {
+          "kind": "video",
+          "videoId": "i51eRxFOpkg",
+          "title": "Tycho - Glider (Sziget Fesztivál 2017)",
+          "channel": "Scratchmen",
+          "score": 22.75,
+          "url": "https://www.youtube.com/watch?v=i51eRxFOpkg",
+          "embedUrl": "https://www.youtube.com/embed/i51eRxFOpkg?autoplay=1&playsinline=1&origin=http%3A%2F%2Flocalhost%3A3000"
+        },
+        {
+          "kind": "video",
+          "videoId": "w3L0kNuO1s0",
+          "title": "Tycho - Glider",
+          "channel": "so sleepy owl",
+          "score": 22.75,
+          "url": "https://www.youtube.com/watch?v=w3L0kNuO1s0",
+          "embedUrl": "https://www.youtube.com/embed/w3L0kNuO1s0?autoplay=1&playsinline=1&origin=http%3A%2F%2Flocalhost%3A3000"
+        }
+      ]
+    },
+    "updatedAt": "2026-03-07T16:20:02.338Z"
+  },
+  {
+    "key": "geotic abysma",
+    "artist": "Geotic",
+    "album": "Abysma",
+    "query": "Geotic Abysma",
+    "result": {
+      "ok": true,
+      "kind": "playlist",
+      "playlistId": "OLAK5uy_mK8zepwXmJ66Cj6qtgLVnzobxrfoiqzhc",
+      "title": "Abysma",
+      "channel": "Geotic",
+      "url": "https://www.youtube.com/playlist?list=OLAK5uy_mK8zepwXmJ66Cj6qtgLVnzobxrfoiqzhc",
+      "embedUrl": "https://www.youtube.com/embed/videoseries?list=OLAK5uy_mK8zepwXmJ66Cj6qtgLVnzobxrfoiqzhc&autoplay=1&playsinline=1&origin=http%3A%2F%2Flocalhost%3A3000",
+      "previewStrategy": "direct",
+      "confidence": "high",
+      "warning": null,
+      "audioPreview": {
+        "trackName": "Sunspell",
+        "artistName": "Geotic",
+        "collectionName": "Abysma",
+        "previewUrl": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview115/v4/77/d5/18/77d51887-62e0-d587-9d42-8a39186fdc5f/mzaf_10720862984041608056.plus.aac.p.m4a",
+        "artworkUrl100": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/d6/16/f0/d616f0af-0499-170d-3f66-b2d356378452/804297828329.jpg/100x100bb.jpg",
+        "artworkUrl600": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/d6/16/f0/d616f0af-0499-170d-3f66-b2d356378452/804297828329.jpg/600x600bb.jpg"
+      },
+      "candidates": [
+        {
+          "kind": "playlist",
+          "playlistId": "OLAK5uy_mK8zepwXmJ66Cj6qtgLVnzobxrfoiqzhc",
+          "title": "Abysma",
+          "channel": "Geotic",
+          "url": "https://www.youtube.com/playlist?list=OLAK5uy_mK8zepwXmJ66Cj6qtgLVnzobxrfoiqzhc",
+          "embedUrl": "https://www.youtube.com/embed/videoseries?list=OLAK5uy_mK8zepwXmJ66Cj6qtgLVnzobxrfoiqzhc&autoplay=1&playsinline=1&origin=http%3A%2F%2Flocalhost%3A3000",
+          "score": 100
+        },
+        {
+          "kind": "video",
+          "videoId": "vEGSxW_FW6Q",
+          "title": "Geotic - Sunspell",
+          "channel": "The World of Music",
+          "score": 24,
+          "url": "https://www.youtube.com/watch?v=vEGSxW_FW6Q",
+          "embedUrl": "https://www.youtube.com/embed/vEGSxW_FW6Q?autoplay=1&playsinline=1&origin=http%3A%2F%2Flocalhost%3A3000"
+        },
+        {
+          "kind": "video",
+          "videoId": "w61gO7OIpkE",
+          "title": "Geotic - Sunspell",
+          "channel": "Ghostly International",
+          "score": 22.75,
+          "url": "https://www.youtube.com/watch?v=w61gO7OIpkE",
+          "embedUrl": "https://www.youtube.com/embed/w61gO7OIpkE?autoplay=1&playsinline=1&origin=http%3A%2F%2Flocalhost%3A3000"
+        }
+      ]
+    },
+    "updatedAt": "2026-03-07T16:18:20.698Z"
+  },
+  {
+    "key": "visible cloaks reassemblage",
+    "artist": "Visible Cloaks",
+    "album": "Reassemblage",
+    "query": "Visible Cloaks Reassemblage",
+    "result": {
+      "ok": true,
+      "kind": "playlist",
+      "playlistId": "OLAK5uy_mXJd6VjPgbj3hgRN20ovmhpwE_YVBbpuk",
+      "title": "Reassemblage",
+      "channel": "Visible Cloaks",
+      "url": "https://www.youtube.com/playlist?list=OLAK5uy_mXJd6VjPgbj3hgRN20ovmhpwE_YVBbpuk",
+      "embedUrl": "https://www.youtube.com/embed/videoseries?list=OLAK5uy_mXJd6VjPgbj3hgRN20ovmhpwE_YVBbpuk&autoplay=1&playsinline=1&origin=http%3A%2F%2Flocalhost%3A3000",
+      "previewStrategy": "direct",
+      "confidence": "high",
+      "warning": null,
+      "audioPreview": {
+        "trackName": "Screen",
+        "artistName": "Visible Cloaks",
+        "collectionName": "Reassemblage",
+        "previewUrl": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview125/v4/2a/1b/c1/2a1bc12e-fed1-8b88-bdbd-61a30603dade/mzaf_6355337761520692555.plus.aac.p.m4a",
+        "artworkUrl100": "https://is1-ssl.mzstatic.com/image/thumb/Music71/v4/73/81/8a/73818a7e-0f26-da53-4662-cf98734d769c/716670165702.jpg/100x100bb.jpg",
+        "artworkUrl600": "https://is1-ssl.mzstatic.com/image/thumb/Music71/v4/73/81/8a/73818a7e-0f26-da53-4662-cf98734d769c/716670165702.jpg/600x600bb.jpg"
+      },
+      "candidates": [
+        {
+          "kind": "playlist",
+          "playlistId": "OLAK5uy_mXJd6VjPgbj3hgRN20ovmhpwE_YVBbpuk",
+          "title": "Reassemblage",
+          "channel": "Visible Cloaks",
+          "url": "https://www.youtube.com/playlist?list=OLAK5uy_mXJd6VjPgbj3hgRN20ovmhpwE_YVBbpuk",
+          "embedUrl": "https://www.youtube.com/embed/videoseries?list=OLAK5uy_mXJd6VjPgbj3hgRN20ovmhpwE_YVBbpuk&autoplay=1&playsinline=1&origin=http%3A%2F%2Flocalhost%3A3000",
+          "score": 100
+        },
+        {
+          "kind": "video",
+          "videoId": "9VJheBnXEhg",
+          "title": "Kelela &amp; Asmara - Visible Cloaks (Screen)",
+          "channel": "medialuna",
+          "score": 21.25,
+          "url": "https://www.youtube.com/watch?v=9VJheBnXEhg",
+          "embedUrl": "https://www.youtube.com/embed/9VJheBnXEhg?autoplay=1&playsinline=1&origin=http%3A%2F%2Flocalhost%3A3000"
+        },
+        {
+          "kind": "video",
+          "videoId": "UW9FkoqZPgM",
+          "title": "Screen",
+          "channel": "Visible Cloaks - Topic",
+          "score": 15.5,
+          "url": "https://www.youtube.com/watch?v=UW9FkoqZPgM",
+          "embedUrl": "https://www.youtube.com/embed/UW9FkoqZPgM?autoplay=1&playsinline=1&origin=http%3A%2F%2Flocalhost%3A3000"
+        }
+      ]
+    },
+    "updatedAt": "2026-03-07T16:18:09.896Z"
+  },
+  {
+    "key": "radiohead a moon shaped pool",
+    "artist": "Radiohead",
+    "album": "A Moon Shaped Pool",
+    "query": "Radiohead A Moon Shaped Pool",
+    "result": {
+      "ok": true,
+      "kind": "playlist",
+      "playlistId": "OLAK5uy_l2JdqQ9q-aHSQmRiz3NfIkU2kkbxd1-ps",
+      "title": "A Moon Shaped Pool",
+      "channel": "Radiohead",
+      "url": "https://www.youtube.com/playlist?list=OLAK5uy_l2JdqQ9q-aHSQmRiz3NfIkU2kkbxd1-ps",
+      "embedUrl": "https://www.youtube.com/embed/videoseries?list=OLAK5uy_l2JdqQ9q-aHSQmRiz3NfIkU2kkbxd1-ps&autoplay=1&playsinline=1&origin=http%3A%2F%2Flocalhost%3A3000",
+      "previewStrategy": "direct",
+      "confidence": "high",
+      "warning": null,
+      "audioPreview": {
+        "trackName": "Burn the Witch",
+        "artistName": "Radiohead",
+        "collectionName": "A Moon Shaped Pool",
+        "previewUrl": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview115/v4/e5/b4/d3/e5b4d356-a908-ca23-5253-cb6c92eeebfc/mzaf_6254874119922360299.plus.aac.p.m4a",
+        "artworkUrl100": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/b7/f2/5d/b7f25d91-4320-47c8-146a-6f84d5bc7e78/cover.jpg/100x100bb.jpg",
+        "artworkUrl600": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/b7/f2/5d/b7f25d91-4320-47c8-146a-6f84d5bc7e78/cover.jpg/600x600bb.jpg"
+      },
+      "candidates": [
+        {
+          "kind": "playlist",
+          "playlistId": "OLAK5uy_l2JdqQ9q-aHSQmRiz3NfIkU2kkbxd1-ps",
+          "title": "A Moon Shaped Pool",
+          "channel": "Radiohead",
+          "url": "https://www.youtube.com/playlist?list=OLAK5uy_l2JdqQ9q-aHSQmRiz3NfIkU2kkbxd1-ps",
+          "embedUrl": "https://www.youtube.com/embed/videoseries?list=OLAK5uy_l2JdqQ9q-aHSQmRiz3NfIkU2kkbxd1-ps&autoplay=1&playsinline=1&origin=http%3A%2F%2Flocalhost%3A3000",
+          "score": 100
+        },
+        {
+          "kind": "video",
+          "videoId": "yI2oS2hoL0k",
+          "title": "Radiohead - Burn The Witch",
+          "channel": "Radiohead",
+          "score": 26.5,
+          "url": "https://www.youtube.com/watch?v=yI2oS2hoL0k",
+          "embedUrl": "https://www.youtube.com/embed/yI2oS2hoL0k?autoplay=1&playsinline=1&origin=http%3A%2F%2Flocalhost%3A3000"
+        },
+        {
+          "kind": "video",
+          "videoId": "DQDaTjQV7So",
+          "title": "Radiohead | Burn the Witch [Extended]",
+          "channel": "MashedRecords",
+          "score": 26.5,
+          "url": "https://www.youtube.com/watch?v=DQDaTjQV7So",
+          "embedUrl": "https://www.youtube.com/embed/DQDaTjQV7So?autoplay=1&playsinline=1&origin=http%3A%2F%2Flocalhost%3A3000"
+        },
+        {
+          "kind": "video",
+          "videoId": "Gpkv8UQCj_g",
+          "title": "Radiohead - Burn The Witch [HQ]",
+          "channel": "SalvaMuñox",
+          "score": 25.25,
+          "url": "https://www.youtube.com/watch?v=Gpkv8UQCj_g",
+          "embedUrl": "https://www.youtube.com/embed/Gpkv8UQCj_g?autoplay=1&playsinline=1&origin=http%3A%2F%2Flocalhost%3A3000"
+        },
+        {
+          "kind": "video",
+          "videoId": "Yvnvhd4C2Z0",
+          "title": "Radiohead - Burn the Witch (Berkeley 2017) (IEM Audio Matrix)",
+          "channel": "deliciousreindeer",
+          "score": 25.25,
+          "url": "https://www.youtube.com/watch?v=Yvnvhd4C2Z0",
+          "embedUrl": "https://www.youtube.com/embed/Yvnvhd4C2Z0?autoplay=1&playsinline=1&origin=http%3A%2F%2Flocalhost%3A3000"
+        }
+      ]
+    },
+    "updatedAt": "2026-03-07T16:14:23.899Z"
+  },
+  {
+    "key": "tim hecker love streams",
+    "artist": "Tim Hecker",
+    "album": "Love Streams",
+    "query": "Tim Hecker Love Streams",
+    "result": {
+      "ok": true,
+      "kind": "playlist",
+      "title": "Tim Hecker - Love Streams (Full Album)",
+      "channel": "azote48",
+      "url": "https://www.youtube.com/playlist?list=PLpCe82icWpaKIky4t70lZINLiEZt3plv4",
+      "embedUrl": "https://www.youtube.com/embed/videoseries?list=PLpCe82icWpaKIky4t70lZINLiEZt3plv4&autoplay=1&playsinline=1&origin=http%3A%2F%2F127.0.0.1%3A3000",
+      "confidence": "high",
+      "warning": "Album resolved via music provider. Previewing \"Obsidian Counterpoint\" because full album embeds are unreliable.",
+      "candidates": [
+        {
+          "kind": "video",
+          "videoId": "SqJbtbtVL8I",
+          "title": "Tim Hecker - Obsidian Counterpoint (Live @ Taboó, Madrid 24/10/2015)",
+          "channel": "Daniel Andréu",
+          "score": 21.5,
+          "url": "https://www.youtube.com/watch?v=SqJbtbtVL8I",
+          "embedUrl": "https://www.youtube.com/embed/SqJbtbtVL8I?autoplay=1&playsinline=1&origin=http%3A%2F%2F127.0.0.1%3A3000"
+        },
+        {
+          "kind": "video",
+          "videoId": "BIhtDowNTRU",
+          "title": "Obsidian Counterpoint",
+          "channel": "Tim Hecker - Topic",
+          "score": 16.75,
+          "url": "https://www.youtube.com/watch?v=BIhtDowNTRU",
+          "embedUrl": "https://www.youtube.com/embed/BIhtDowNTRU?autoplay=1&playsinline=1&origin=http%3A%2F%2F127.0.0.1%3A3000"
+        },
+        {
+          "kind": "playlist",
+          "playlistId": "PLpCe82icWpaKIky4t70lZINLiEZt3plv4",
+          "title": "Tim Hecker - Love Streams (Full Album)",
+          "channel": "azote48",
+          "score": 10.5,
+          "url": "https://www.youtube.com/playlist?list=PLpCe82icWpaKIky4t70lZINLiEZt3plv4",
+          "embedUrl": "https://www.youtube.com/embed/videoseries?list=PLpCe82icWpaKIky4t70lZINLiEZt3plv4&autoplay=1&playsinline=1&origin=http%3A%2F%2F127.0.0.1%3A3000"
+        },
+        {
+          "kind": "playlist",
+          "playlistId": "PL6V3VIGgwIjnvQsJOkQDtTKxH_rqh0ZBV",
+          "title": "Tim Hecker - Love Streams (Full Album)",
+          "channel": "Valentina Balfany",
+          "score": 10.5,
+          "url": "https://www.youtube.com/playlist?list=PL6V3VIGgwIjnvQsJOkQDtTKxH_rqh0ZBV",
+          "embedUrl": "https://www.youtube.com/embed/videoseries?list=PL6V3VIGgwIjnvQsJOkQDtTKxH_rqh0ZBV&autoplay=1&playsinline=1&origin=http%3A%2F%2F127.0.0.1%3A3000"
+        }
+      ],
+      "audioPreview": {
+        "trackName": "Obsidian Counterpoint",
+        "artistName": "Tim Hecker",
+        "collectionName": "Love Streams",
+        "previewUrl": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview116/v4/50/05/ef/5005ef50-9acd-73af-3b3f-b2c44cb8cc25/mzaf_2804848108259845042.plus.aac.p.m4a",
+        "artworkUrl100": "https://is1-ssl.mzstatic.com/image/thumb/Music123/v4/33/2e/d5/332ed5e1-0aab-6920-8779-1b3b70bde3c0/652637361452.png/100x100bb.jpg",
+        "artworkUrl600": "https://is1-ssl.mzstatic.com/image/thumb/Music123/v4/33/2e/d5/332ed5e1-0aab-6920-8779-1b3b70bde3c0/652637361452.png/600x600bb.jpg"
+      },
+      "playlistId": "PLpCe82icWpaKIky4t70lZINLiEZt3plv4"
+    },
+    "updatedAt": "2026-03-07T15:44:20.647Z"
+  },
+  {
+    "key": "oneohtrix point never tranquilizer",
+    "artist": "Oneohtrix Point Never",
+    "album": "Tranquilizer",
+    "query": "Oneohtrix Point Never Tranquilizer",
+    "result": {
+      "ok": true,
+      "videoId": "CEeCziXT2FE",
+      "title": "Oneohtrix Point Never - D.I.S. (Official Video)",
+      "channel": "Oneohtrix Point Never",
+      "url": "https://www.youtube.com/watch?v=CEeCziXT2FE",
+      "embedUrl": "https://www.youtube.com/embed/CEeCziXT2FE?autoplay=1&playsinline=1&origin=http%3A%2F%2F127.0.0.1%3A3000",
+      "confidence": "high",
+      "warning": null,
+      "candidates": [
+        {
+          "videoId": "3ZMzLZJu6Qg",
+          "title": "Oneohtrix Point Never - Tranquilizer (Full Album Visualiser)",
+          "channel": "Oneohtrix Point Never",
+          "url": "https://www.youtube.com/watch?v=3ZMzLZJu6Qg",
+          "embedUrl": "https://www.youtube.com/embed/3ZMzLZJu6Qg?autoplay=1&playsinline=1&origin=http%3A%2F%2F127.0.0.1%3A3000",
+          "score": 27
+        },
+        {
+          "videoId": "CEeCziXT2FE",
+          "title": "Oneohtrix Point Never - D.I.S. (Official Video)",
+          "channel": "Oneohtrix Point Never",
+          "url": "https://www.youtube.com/watch?v=CEeCziXT2FE",
+          "embedUrl": "https://www.youtube.com/embed/CEeCziXT2FE?autoplay=1&playsinline=1&origin=http%3A%2F%2F127.0.0.1%3A3000",
+          "score": 17.75
+        },
+        {
+          "videoId": "50-c1MPz630",
+          "title": "Oneohtrix Point Never - Cherry Blue (Official Video)",
+          "channel": "Oneohtrix Point Never",
+          "url": "https://www.youtube.com/watch?v=50-c1MPz630",
+          "embedUrl": "https://www.youtube.com/embed/50-c1MPz630?autoplay=1&playsinline=1&origin=http%3A%2F%2F127.0.0.1%3A3000",
+          "score": 17.75
+        },
+        {
+          "videoId": "YfjsyKFbyqM",
+          "title": "Oneohtrix Point Never - Lifeworld (Official Video)",
+          "channel": "Oneohtrix Point Never",
+          "url": "https://www.youtube.com/watch?v=YfjsyKFbyqM",
+          "embedUrl": "https://www.youtube.com/embed/YfjsyKFbyqM?autoplay=1&playsinline=1&origin=http%3A%2F%2F127.0.0.1%3A3000",
+          "score": 17.75
+        }
+      ]
+    },
+    "updatedAt": "2026-03-07T12:33:20.366Z"
+  },
+  {
+    "key": "geese getting killed",
+    "artist": "Geese",
+    "album": "Getting Killed",
+    "query": "Geese Getting Killed",
+    "result": {
+      "ok": true,
+      "videoId": "XlEId49JNCs",
+      "title": "Geese - Getting Killed (Full Album)",
+      "channel": "Nice Guys",
+      "url": "https://www.youtube.com/watch?v=XlEId49JNCs",
+      "embedUrl": "https://www.youtube.com/embed/XlEId49JNCs?autoplay=1&playsinline=1&origin=http%3A%2F%2F127.0.0.1%3A3000",
+      "confidence": "high",
+      "warning": null,
+      "candidates": [
+        {
+          "videoId": "T5nf0kFQddc",
+          "title": "Geese - Getting Killed (Official Audio)",
+          "channel": "Geese",
+          "url": "https://www.youtube.com/watch?v=T5nf0kFQddc",
+          "embedUrl": "https://www.youtube.com/embed/T5nf0kFQddc?autoplay=1&playsinline=1&origin=http%3A%2F%2F127.0.0.1%3A3000",
+          "score": 21.75
+        },
+        {
+          "videoId": "XlEId49JNCs",
+          "title": "Geese - Getting Killed (Full Album)",
+          "channel": "Nice Guys",
+          "url": "https://www.youtube.com/watch?v=XlEId49JNCs",
+          "embedUrl": "https://www.youtube.com/embed/XlEId49JNCs?autoplay=1&playsinline=1&origin=http%3A%2F%2F127.0.0.1%3A3000",
+          "score": 18.5
+        },
+        {
+          "videoId": "ogl1S4r2UtA",
+          "title": "Geese - Getting Killed Full Album",
+          "channel": "Erbivore",
+          "url": "https://www.youtube.com/watch?v=ogl1S4r2UtA",
+          "embedUrl": "https://www.youtube.com/embed/ogl1S4r2UtA?autoplay=1&playsinline=1&origin=http%3A%2F%2F127.0.0.1%3A3000",
+          "score": 18.5
+        },
+        {
+          "videoId": "qy8ZBISKqKI",
+          "title": "Geese - Getting Killed [Full Album]",
+          "channel": "Placidous",
+          "url": "https://www.youtube.com/watch?v=qy8ZBISKqKI",
+          "embedUrl": "https://www.youtube.com/embed/qy8ZBISKqKI?autoplay=1&playsinline=1&origin=http%3A%2F%2F127.0.0.1%3A3000",
+          "score": 18.5
+        }
+      ]
+    },
+    "updatedAt": "2026-03-07T12:07:03.647Z"
+  }
+]
